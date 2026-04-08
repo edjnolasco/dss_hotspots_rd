@@ -117,7 +117,7 @@ with st.sidebar:
 
     source_mode = st.radio(
         "Selecciona la fuente",
-        ["Fuente oficial DIGESETT", "Subir CSV/XLSX", "Ruta local"],
+        ["Subir CSV/XLSX", "Ruta local", "Fuente oficial DIGESETT"],
         index=0,
     )
 
@@ -202,8 +202,15 @@ if run_clicked:
         # Carga del dataset
         # -------------------------
         if source_mode == "Fuente oficial DIGESETT":
-            normalized_df = load_data_remote()
-            source_label = "Fuente oficial DIGESETT"
+            try:
+                normalized_df = load_data_remote()
+                source_label = "Fuente oficial DIGESETT"
+            except Exception:
+                st.error(
+                    "La fuente oficial DIGESETT rechazó la descarga remota (HTTP 403 o acceso restringido). "
+                    "Usa la opción 'Subir CSV/XLSX' con el archivo oficial descargado manualmente."
+                )
+                st.stop()
 
         elif source_mode == "Subir CSV/XLSX":
             if uploaded_file is None:
@@ -340,10 +347,8 @@ if run_clicked:
                             geojson = json.loads(uploaded_geo.getvalue().decode("utf-8"))
 
                     if geojson is not None:
-                        # Buscar propiedad de provincia
                         province_property = find_province_property(geojson)
 
-                        # Si no encuentra automáticamente, usar NAME_1 (GADM) si existe
                         if not province_property:
                             sample_props = {}
                             if geojson.get("features"):
@@ -360,7 +365,6 @@ if run_clicked:
                             geojson = normalize_geojson_provinces(geojson, province_property)
                             ranking_map_df = prepare_ranking_for_map(ranking_df)
 
-                            # Validación de coincidencias
                             geojson_names = {
                                 canonical_province(
                                     feature.get("properties", {}).get(province_property, "")
@@ -433,5 +437,10 @@ else:
     st.info("Configura la fuente de datos y ejecuta el análisis.")
     st.markdown("### Fuente oficial prevista")
     st.code(OFFICIAL_PROVINCES_URL)
+    st.markdown("### Nota sobre DIGESETT")
+    st.write(
+        "Si la descarga remota falla con HTTP 403, usa la opción 'Subir CSV/XLSX' "
+        "con el archivo oficial descargado manualmente."
+    )
     st.markdown("### GeoJSON esperado")
     st.code(str(ROOT / "data" / "rd_provinces.geojson"))
