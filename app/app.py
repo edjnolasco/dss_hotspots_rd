@@ -16,7 +16,6 @@ from src.data_sources import (
     OFFICIAL_PROVINCES_URL,
     read_dataframe_from_bytes,
     load_local_dataframe,
-    fetch_remote_dataframe,
     normalize_official_provinces,
 )
 from src.pipeline import run_pipeline
@@ -145,15 +144,6 @@ with st.sidebar:
 # ============================================================
 
 @st.cache_data(show_spinner=False)
-def load_data_remote():
-    raw = fetch_remote_dataframe(
-        OFFICIAL_PROVINCES_URL,
-        filename_hint="fallecimientos_provincias.csv",
-    )
-    return normalize_official_provinces(raw)
-
-
-@st.cache_data(show_spinner=False)
 def load_data_local(path_str: str):
     raw = load_local_dataframe(path_str)
     return normalize_official_provinces(raw)
@@ -180,15 +170,23 @@ if run_clicked:
         # Carga del dataset
         # -------------------------
         if source_mode == "Fuente oficial DIGESETT":
-            try:
-                normalized_df = load_data_remote()
-                source_label = "Fuente oficial DIGESETT"
-            except Exception:
-                st.error(
-                    "La fuente oficial DIGESETT rechazó la descarga remota (HTTP 403 o acceso restringido). "
-                    "Usa la opción 'Subir CSV/XLSX' con el archivo oficial descargado manualmente."
-                )
-                st.stop()
+            st.warning(
+                "La fuente oficial DIGESETT puede rechazar descargas automáticas desde scripts. "
+                "Por eso, esta opción funciona en modo asistido."
+            )
+
+            st.link_button(
+                "Abrir recurso oficial DIGESETT",
+                OFFICIAL_PROVINCES_URL,
+                use_container_width=True,
+            )
+
+            st.info(
+                "Descarga el archivo oficial desde el portal y luego vuelve a la aplicación "
+                "para usar una de estas dos opciones: "
+                "'Subir CSV/XLSX' o 'Ruta local'."
+            )
+            st.stop()
 
         elif source_mode == "Subir CSV/XLSX":
             if uploaded_file is None:
@@ -394,8 +392,9 @@ else:
     st.code(OFFICIAL_PROVINCES_URL)
     st.markdown("### Nota sobre DIGESETT")
     st.write(
-        "Si la descarga remota falla con HTTP 403, usa la opción 'Subir CSV/XLSX' "
-        "con el archivo oficial descargado manualmente."
+        "La opción 'Fuente oficial DIGESETT' funciona en modo asistido: "
+        "abre el recurso oficial para que descargues el archivo manualmente "
+        "y luego lo uses en 'Subir CSV/XLSX' o 'Ruta local'."
     )
     st.markdown("### GeoJSON esperado")
     st.code(str(ROOT / "data" / "rd_provinces.geojson"))
