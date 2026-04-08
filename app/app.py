@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import json
 from pathlib import Path
 
 import streamlit as st
@@ -21,9 +20,8 @@ from src.data_sources import (
     normalize_official_provinces,
 )
 from src.pipeline import run_pipeline
-from src.map_utils import find_province_property, build_choropleth
+from src.map_utils import build_rd_choropleth_from_source
 from src.exporter import to_csv_bytes, to_excel_bytes
-from src.province_utils import canonical_province
 
 
 # ============================================================
@@ -38,26 +36,6 @@ st.caption(f"Autor: {AUTHOR}")
 # ============================================================
 # UTILIDADES
 # ============================================================
-
-def load_geojson_local(path: str | Path) -> dict:
-    path = Path(path)
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def normalize_geojson_provinces(geojson: dict, province_property: str) -> dict:
-    for feature in geojson.get("features", []):
-        props = feature.get("properties", {})
-        if province_property in props:
-            props[province_property] = canonical_province(props[province_property])
-    return geojson
-
-
-def prepare_ranking_for_map(ranking_df):
-    out = ranking_df.copy()
-    out["provincia"] = out["provincia"].astype(str).apply(canonical_province)
-    return out
-
 
 def kpi_dashboard(ranking_df):
     top1 = ranking_df.iloc[0]
@@ -338,53 +316,30 @@ if run_clicked:
             else:
                 try:
                     if geo_mode == "Ruta local":
-                        geojson = load_geojson_local(geo_local_path)
+                        geo_source = geo_local_path
                     else:
                         if uploaded_geo is None:
                             st.info("Sube un archivo GeoJSON.")
-                            geojson = None
+                            geo_source = None
                         else:
-                            geojson = json.loads(uploaded_geo.getvalue().decode("utf-8"))
+                            geo_source = uploaded_geo.getvalue().decode("utf-8")
 
-                    if geojson is not None:
-                        province_property = find_province_property(geojson)
+                    if geo_source is not None:
+                        map_result = build_rd_choropleth_from_source(
+                            ranking_df,
+                            geo_source,
+                            province_column="provincia",
+                            color_column="score_riesgo",
+                            title="Mapa de riesgo por provincia",
+                        )
 
-                        if not province_property:
-                            sample_props = {}
-                            if geojson.get("features"):
-                                sample_props = geojson["features"][0].get("properties", {})
-                            if "NAME_1" in sample_props:
-                                province_property = "NAME_1"
-
-                        if not province_property:
-                            st.error(
-                                "No se pudo identificar la propiedad de provincia en el GeoJSON. "
-                                "Para GADM debe existir 'NAME_1'."
+                        if map_result["unmatched_provinces"]:
+                            st.warning(
+                                "Provincias sin correspondencia en el GeoJSON: "
+                                f"{map_result['unmatched_provinces']}"
                             )
-                        else:
-                            geojson = normalize_geojson_provinces(geojson, province_property)
-                            ranking_map_df = prepare_ranking_for_map(ranking_df)
 
-                            geojson_names = {
-                                canonical_province(
-                                    feature.get("properties", {}).get(province_property, "")
-                                )
-                                for feature in geojson.get("features", [])
-                            }
-                            ranking_names = set(ranking_map_df["provincia"].unique())
-                            missing = sorted(name for name in ranking_names if name not in geojson_names)
-
-                            if missing:
-                                st.warning(
-                                    f"Provincias sin correspondencia en el GeoJSON: {missing}"
-                                )
-
-                            fig_map = build_choropleth(
-                                ranking_map_df,
-                                geojson,
-                                province_property,
-                            )
-                            st.plotly_chart(fig_map, use_container_width=True)
+                        st.plotly_chart(map_result["figure"], use_container_width=True)
 
                 except Exception as e:
                     st.warning(f"No fue posible generar el mapa: {e}")
