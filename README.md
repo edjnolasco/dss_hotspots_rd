@@ -1,5 +1,7 @@
 # DSS_Hotspots_RD
 
+![CI](https://github.com/edjnolasco/dss_hotspots_rd/actions/workflows/ci.yml/badge.svg)
+
 Sistema de Soporte a la Decisión (DSS) para la predicción y priorización de hotspots de accidentes de tránsito en la República Dominicana.
 
 ## Autor
@@ -19,6 +21,21 @@ El sistema permite identificar provincias con mayor probabilidad de incremento e
 
 ---
 
+## Demo
+
+👉 *(Opcional — agrega aquí cuando lo despliegues)*  
+- Streamlit Cloud: https://tu-app.streamlit.app  
+
+---
+
+## Dashboard (Vista del sistema)
+
+![Dashboard DSS](docs/dashboard.png)
+
+> Visualización del ranking de riesgo por provincia y métricas del sistema DSS.
+
+---
+
 ## Arquitectura
 
 El sistema sigue el modelo C4:
@@ -27,25 +44,25 @@ El sistema sigue el modelo C4:
 DSS de predicción de hotspots de accidentes en RD.
 
 ### Nivel 2 — Contenedores
-- **Frontend**: Streamlit (visualización interactiva)
-- **Motor DSS**: Pipeline de datos + modelo predictivo + reglas
+- **Frontend**: Streamlit
+- **Motor DSS**: Pipeline + modelo + reglas
 
 ### Nivel 3 — Componentes
 - Ingesta y normalización de datos
-- Ingeniería de características (lags, rolling, tendencia)
+- Ingeniería de características
 - Modelo predictivo (Random Forest)
-- Capa de reglas (clasificación de riesgo)
+- Capa de reglas DSS
 - Métricas Top-K (HitRate@K, nDCG@K)
 
 ---
 
 ## Tecnologías
 
-- Pandas — manipulación de datos
-- NumPy — operaciones numéricas
-- Scikit-learn — modelado predictivo
-- SHAP — interpretabilidad (opcional)
-- Streamlit — interfaz interactiva
+- Pandas
+- NumPy
+- Scikit-learn
+- SHAP (opcional)
+- Streamlit
 
 ---
 
@@ -54,6 +71,6 @@ DSS de predicción de hotspots de accidentes en RD.
 Fuente:
 - Datos abiertos de accidentes de tránsito en República Dominicana
 
-Archivo de ejemplo incluido:
+Archivo incluido:
 ```bash
 data/fallecimientos_provincias.csv
