@@ -10,22 +10,24 @@ PROVINCE_ALIASES = {
     "distrito nacional": "Distrito Nacional",
     "distritonacional": "Distrito Nacional",
     "duarte": "Duarte",
+
     "el seibo": "El Seibo",
     "elseibo": "El Seibo",
-    "El Seibo": "El Seibo",
+
     "elias pina": "Elías Piña",
     "eliaspina": "Elías Piña",
     "elias piña": "Elías Piña",
     "eliaspiña": "Elías Piña",
     "elías piña": "Elías Piña",
     "elíaspiña": "Elías Piña",
-    "Elías Piña": "Elías Piña",
+
     "espaillat": "Espaillat",
     "hato mayor": "Hato Mayor",
     "hatomayor": "Hato Mayor",
+
     "hermanas mirabal": "Hermanas Mirabal",
     "hermanasmirabal": "Hermanas Mirabal",
-    "Hermanas Mirabal": "Hermanas Mirabal",
+
     "independencia": "Independencia",
     "la altagracia": "La Altagracia",
     "laaltagracia": "La Altagracia",
@@ -50,7 +52,6 @@ PROVINCE_ALIASES = {
     "puerto plata": "Puerto Plata",
     "puertoplata": "Puerto Plata",
     "samana": "Samaná",
-    "samaná": "Samaná",
     "samaná": "Samaná",
     "san cristobal": "San Cristóbal",
     "sancristobal": "San Cristóbal",
@@ -94,17 +95,8 @@ def normalize_text(s: str) -> str:
 
 
 def canonical_province(name: str) -> str:
-    """
-    Devuelve el nombre canónico y legible de una provincia,
-    resolviendo variantes con o sin espacios, acentos o escritura compacta.
-    """
     return PROVINCE_ALIASES.get(normalize_text(name), str(name).strip())
 
 
 def province_key(name: str) -> str:
-    """
-    Devuelve una clave técnica estable para matching entre dataset y GeoJSON.
-    Ejemplo:
-    'San Cristóbal' -> 'san_cristobal'
-    """
     return normalize_text(canonical_province(name)).replace(" ", "_")
