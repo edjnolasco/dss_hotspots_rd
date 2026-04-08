@@ -30,26 +30,63 @@ jobs:
       - name: Verificar sintaxis Python
         run: python -m compileall app src
 
-      - name: Test mínimo del pipeline DSS
+      - name: Validar carga y normalización del dataset
         run: |
           python - <<'PY'
           import sys
           from pathlib import Path
-          import pandas as pd
+
+          sys.path.append(str(Path(".").resolve()))
+
+          from src.data_sources import load_local_dataframe, normalize_official_provinces
+
+          raw_df = load_local_dataframe("data/fallecimientos_provincias.csv")
+          normalized_df = normalize_official_provinces(raw_df)
+
+          assert not raw_df.empty, "El archivo base está vacío"
+          assert not normalized_df.empty, "La normalización produjo un dataframe vacío"
+
+          required_cols = {"provincia", "year", "fallecidos", "month", "fecha"}
+          missing = required_cols - set(normalized_df.columns)
+          assert not missing, f"Faltan columnas tras normalización: {missing}"
+
+          print("CI OK: carga y normalización correctas")
+          PY
+
+      - name: Validar pipeline DSS
+        run: |
+          python - <<'PY'
+          import sys
+          from pathlib import Path
 
           sys.path.append(str(Path(".").resolve()))
 
           from src.pipeline import run_pipeline
-          from src.data_sources import normalize_official_provinces
+          from src.data_sources import load_local_dataframe, normalize_official_provinces
 
-          df = pd.read_csv("data/fallecimientos_provincias.csv")
-          normalized_df = normalize_official_provinces(df)
+          raw_df = load_local_dataframe("data/fallecimientos_provincias.csv")
+          normalized_df = normalize_official_provinces(raw_df)
 
           result = run_pipeline(normalized_df)
 
           assert isinstance(result, dict), "El pipeline debe devolver un diccionario"
-          assert "ranking_df" in result, "No se encontró ranking_df en la salida"
-          assert not result["ranking_df"].empty, "ranking_df está vacío"
 
-          print("CI OK: pipeline ejecutado correctamente")
+          required_keys = {
+              "ranking_df",
+              "metricas_df",
+              "explain_df",
+              "scored_df",
+              "narrative_text",
+              "latest_year",
+              "mae",
+              "r2",
+          }
+          missing_keys = required_keys - set(result.keys())
+          assert not missing_keys, f"Faltan claves en la salida del pipeline: {missing_keys}"
+
+          assert not result["ranking_df"].empty, "ranking_df está vacío"
+          assert not result["metricas_df"].empty, "metricas_df está vacío"
+          assert isinstance(result["narrative_text"], str), "narrative_text debe ser string"
+
+          print("CI OK: pipeline DSS ejecutado correctamente")
           PY
