@@ -38,7 +38,7 @@ jobs:
                "env/*" \
                "dist/*"
 
-      - name: Crear Release en GitHub
+      - name: Publicar release en GitHub
         uses: softprops/action-gh-release@v2
         with:
           files: dist/DSS_Hotspots_RD_${{ github.ref_name }}.zip
