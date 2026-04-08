@@ -1,1 +1,45 @@
+name: Release - DSS_Hotspots_RD
 
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Crear carpeta de distribución
+        run: mkdir -p dist
+
+      - name: Empaquetar proyecto en ZIP
+        run: |
+          zip -r dist/DSS_Hotspots_RD_${GITHUB_REF_NAME}.zip . \
+            -x "*.git*" \
+               "__pycache__/*" \
+               "*.pyc" \
+               ".pytest_cache/*" \
+               ".mypy_cache/*" \
+               ".ruff_cache/*" \
+               ".venv/*" \
+               "venv/*" \
+               "env/*" \
+               "dist/*"
+
+      - name: Crear Release en GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DSS_Hotspots_RD_${{ github.ref_name }}.zip
+          generate_release_notes: true
