@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+import pandas as pd
+
 from .features import create_features
 from .modeling import (
     FEATURES,
@@ -15,26 +18,26 @@ from .explain import explain_global
 from .narrative import build_narrative
 
 
+def load_province_catalog() -> pd.DataFrame:
+    """
+    Carga el catálogo oficial de provincias de RD.
+    """
+    root = Path(__file__).resolve().parents[1]
+    catalog_path = root / "data" / "provincias_rd_catalog.csv"
+
+    if not catalog_path.exists():
+        raise FileNotFoundError(
+            f"No se encontró el catálogo de provincias en: {catalog_path}"
+        )
+
+    catalog = pd.read_csv(catalog_path)
+    if "provincia" not in catalog.columns:
+        raise ValueError("El catálogo de provincias debe tener la columna 'provincia'.")
+
+    return catalog[["provincia"]].drop_duplicates().copy()
+
+
 def run_pipeline(normalized_df, random_state: int = 42) -> dict:
-    """
-    Ejecuta el flujo completo del DSS:
-
-    1. Ingeniería de características
-    2. Preparación de datos de entrenamiento
-    3. Split temporal
-    4. Entrenamiento del modelo
-    5. Evaluación
-    6. Scoring
-    7. Aplicación de reglas
-    8. Construcción de ranking
-    9. Métricas Top-K
-    10. Explicabilidad global
-    11. Narrativa automática
-
-    Retorna un diccionario con todos los artefactos necesarios
-    para la app Streamlit.
-    """
-
     # ------------------------------------------------------------
     # 1. Feature engineering
     # ------------------------------------------------------------
@@ -62,7 +65,7 @@ def run_pipeline(normalized_df, random_state: int = 42) -> dict:
     mae, r2 = evaluate_model(model, test_df)
 
     # ------------------------------------------------------------
-    # 6. Scoring sobre todo el conjunto transformado
+    # 6. Scoring
     # ------------------------------------------------------------
     scored_df = score_dataframe(model, feat_df)
 
@@ -75,7 +78,6 @@ def run_pipeline(normalized_df, random_state: int = 42) -> dict:
     # 8. Ranking del último período disponible
     # ------------------------------------------------------------
     latest_year = int(scored_df["year"].max())
-
     latest_df = scored_df[scored_df["year"] == latest_year].copy()
 
     ranking_df = (
@@ -91,22 +93,39 @@ def run_pipeline(normalized_df, random_state: int = 42) -> dict:
     )
 
     # ------------------------------------------------------------
-    # 9. Métricas Top-K
+    # 9. Expandir a todas las provincias oficiales
+    # ------------------------------------------------------------
+    catalog_df = load_province_catalog()
+
+    ranking_df = catalog_df.merge(ranking_df, on="provincia", how="left")
+
+    ranking_df["pred_fallecidos_next"] = ranking_df["pred_fallecidos_next"].fillna(0.0)
+    ranking_df["score_riesgo"] = ranking_df["score_riesgo"].fillna(0.0)
+    ranking_df["fallecidos_actuales"] = ranking_df["fallecidos_actuales"].fillna(0.0)
+    ranking_df["categoria"] = ranking_df["categoria"].fillna("Sin datos")
+
+    ranking_df = ranking_df.sort_values(
+        ["score_riesgo", "fallecidos_actuales"],
+        ascending=[False, False],
+    ).reset_index(drop=True)
+
+    # ------------------------------------------------------------
+    # 10. Métricas Top-K
     # ------------------------------------------------------------
     metricas_df, pred_rank_df, actual_rank_df = ranking_metrics(scored_df)
 
     # ------------------------------------------------------------
-    # 10. Explicabilidad global
+    # 11. Explicabilidad global
     # ------------------------------------------------------------
     explain_df = explain_global(model, fit_df[FEATURES])
 
     # ------------------------------------------------------------
-    # 11. Narrativa automática
+    # 12. Narrativa automática
     # ------------------------------------------------------------
     narrative_text = build_narrative(ranking_df, metricas_df, latest_year)
 
     # ------------------------------------------------------------
-    # 12. Salida final
+    # 13. Salida final
     # ------------------------------------------------------------
     return {
         "feat_df": feat_df,
