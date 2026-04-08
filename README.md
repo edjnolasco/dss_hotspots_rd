@@ -14,6 +14,13 @@ Este proyecto implementa un DSS híbrido que combina:
 
 El objetivo es identificar provincias con mayor riesgo de fallecimientos para apoyar la toma de decisiones.
 
+## Arquitectura
+
+El sistema sigue un enfoque C4:
+- Nivel 1: Sistema DSS
+- Nivel 2: Contenedores (Frontend, Motor DSS)
+- Nivel 3: Componentes (Pipeline, Modelo, Reglas)
+
 ## Tecnologías
 - Pandas
 - NumPy
