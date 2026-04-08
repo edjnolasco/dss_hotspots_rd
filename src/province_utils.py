@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 PROVINCE_ALIASES = {
     "azua": "Azua",
     "bahoruco": "Bahoruco",
@@ -10,9 +13,11 @@ PROVINCE_ALIASES = {
     "el seibo": "El Seibo",
     "elseibo": "El Seibo",
     "elias pina": "Elías Piña",
-    "eliaspiña": "Elías Piña",
     "eliaspina": "Elías Piña",
+    "elias piña": "Elías Piña",
+    "eliaspiña": "Elías Piña",
     "elías piña": "Elías Piña",
+    "elíaspiña": "Elías Piña",
     "espaillat": "Espaillat",
     "hato mayor": "Hato Mayor",
     "hatomayor": "Hato Mayor",
@@ -28,6 +33,7 @@ PROVINCE_ALIASES = {
     "maria trinidad sanchez": "María Trinidad Sánchez",
     "mariatrinidadsanchez": "María Trinidad Sánchez",
     "maría trinidad sánchez": "María Trinidad Sánchez",
+    "maríatrinidadsánchez": "María Trinidad Sánchez",
     "monsenor nouel": "Monseñor Nouel",
     "monsenornouel": "Monseñor Nouel",
     "monseñor nouel": "Monseñor Nouel",
@@ -70,3 +76,32 @@ PROVINCE_ALIASES = {
     "santodomingo": "Santo Domingo",
     "valverde": "Valverde",
 }
+
+
+def normalize_text(s: str) -> str:
+    return (
+        str(s).strip().lower()
+        .replace("á", "a")
+        .replace("é", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ú", "u")
+        .replace("ñ", "n")
+    )
+
+
+def canonical_province(name: str) -> str:
+    """
+    Devuelve el nombre canónico y legible de una provincia,
+    resolviendo variantes con o sin espacios, acentos o escritura compacta.
+    """
+    return PROVINCE_ALIASES.get(normalize_text(name), str(name).strip())
+
+
+def province_key(name: str) -> str:
+    """
+    Devuelve una clave técnica estable para matching entre dataset y GeoJSON.
+    Ejemplo:
+    'San Cristóbal' -> 'san_cristobal'
+    """
+    return normalize_text(canonical_province(name)).replace(" ", "_")
