@@ -2,9 +2,11 @@ name: CI - DSS_Hotspots_RD
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   validate:
@@ -17,7 +19,7 @@ jobs:
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Actualizar pip
         run: python -m pip install --upgrade pip
@@ -35,39 +37,19 @@ jobs:
           from pathlib import Path
           import pandas as pd
 
-          # Asegurar path del proyecto
-          sys.path.append(str(Path('.').resolve()))
+          sys.path.append(str(Path(".").resolve()))
 
           from src.pipeline import run_pipeline
+          from src.data_sources import normalize_official_provinces
 
-          # Cargar dataset de ejemplo
           df = pd.read_csv("data/fallecimientos_provincias.csv")
+          normalized_df = normalize_official_provinces(df)
 
-          # Normalización básica (compatible con tu código)
-          df.columns = [c.strip().lower() for c in df.columns]
+          result = run_pipeline(normalized_df)
 
-          if "año" in df.columns:
-              df = df.rename(columns={"año": "year"})
-          elif "ano" in df.columns:
-              df = df.rename(columns={"ano": "year"})
-
-          # Validación de estructura mínima
-          required = {"provincia", "year", "fallecidos"}
-          if not required.issubset(df.columns):
-              raise ValueError(f"Columnas requeridas faltantes: {required}")
-
-          # Crear campos esperados por el pipeline
-          df["month"] = 1
-          df["fecha"] = pd.to_datetime(dict(year=df["year"], month=1, day=1))
-
-          # Ejecutar pipeline
-          result = run_pipeline(df)
-
-          # Validación flexible (no rompe por diferencias internas)
-          if isinstance(result, tuple):
-              assert len(result) >= 2
-          elif isinstance(result, dict):
-              assert "ranking_df" in result or "ranking" in result
+          assert isinstance(result, dict), "El pipeline debe devolver un diccionario"
+          assert "ranking_df" in result, "No se encontró ranking_df en la salida"
+          assert not result["ranking_df"].empty, "ranking_df está vacío"
 
           print("CI OK: pipeline ejecutado correctamente")
           PY
