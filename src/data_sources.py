@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+import csv
 
 import pandas as pd
 import requests
@@ -33,6 +34,63 @@ VALUE_SYNONYMS = ["fallecidos", "fallecimiento", "cantidad", "total_fallecidos",
 
 
 # ============================================================
+# DETECCIÓN AUTOMÁTICA DE CSV
+# ============================================================
+
+def detect_csv_delimiter(sample_text: str) -> str:
+    """
+    Detecta el delimitador del CSV usando csv.Sniffer.
+    Si falla, aplica heurística simple.
+    """
+    try:
+        dialect = csv.Sniffer().sniff(sample_text, delimiters=[",", ";", "\t", "|"])
+        return dialect.delimiter
+    except Exception:
+        first_line = sample_text.splitlines()[0] if sample_text.splitlines() else ""
+        delimiter_counts = {
+            ",": first_line.count(","),
+            ";": first_line.count(";"),
+            "\t": first_line.count("\t"),
+            "|": first_line.count("|"),
+        }
+        return max(delimiter_counts, key=delimiter_counts.get)
+
+
+def read_csv_with_auto_detection(content: bytes) -> pd.DataFrame:
+    """
+    Lee un CSV detectando automáticamente delimitador y tolerando encodings comunes.
+    """
+    encodings_to_try = ["utf-8", "utf-8-sig", "latin1", "cp1252"]
+
+    last_error = None
+
+    for encoding in encodings_to_try:
+        try:
+            text = content.decode(encoding)
+            sample = "\n".join(text.splitlines()[:10])
+            delimiter = detect_csv_delimiter(sample)
+
+            return pd.read_csv(
+                BytesIO(content),
+                sep=delimiter,
+                encoding=encoding,
+            )
+        except Exception as e:
+            last_error = e
+
+    raise ValueError(f"No se pudo leer el CSV automáticamente: {last_error}")
+
+
+def read_local_csv_with_auto_detection(path: str | Path) -> pd.DataFrame:
+    """
+    Lee un CSV local detectando delimitador y encoding automáticamente.
+    """
+    path = Path(path)
+    content = path.read_bytes()
+    return read_csv_with_auto_detection(content)
+
+
+# ============================================================
 # LECTURA DE ARCHIVOS
 # ============================================================
 
@@ -49,12 +107,13 @@ def read_dataframe_from_bytes(
     if hint.endswith(".xlsx") or hint.endswith(".xls"):
         return pd.read_excel(BytesIO(content))
 
-    return pd.read_csv(BytesIO(content))
+    return read_csv_with_auto_detection(content)
 
 
 def load_local_dataframe(path: str | Path) -> pd.DataFrame:
     """
     Carga un DataFrame desde una ruta local.
+    Soporta CSV, XLSX y XLS.
     """
     path = Path(path)
 
@@ -64,7 +123,7 @@ def load_local_dataframe(path: str | Path) -> pd.DataFrame:
     if path.suffix.lower() in [".xlsx", ".xls"]:
         return pd.read_excel(path)
 
-    return pd.read_csv(path)
+    return read_local_csv_with_auto_detection(path)
 
 
 # ============================================================
@@ -147,7 +206,6 @@ def normalize_official_provinces(df: pd.DataFrame) -> pd.DataFrame:
     """
     work = df.copy()
 
-    # Normalizar nombres de columnas
     work.columns = [normalize_text(col) for col in work.columns]
 
     province_col = find_column(work, PROVINCE_SYNONYMS)
@@ -163,7 +221,6 @@ def normalize_official_provinces(df: pd.DataFrame) -> pd.DataFrame:
     out = work[[province_col, year_col, value_col]].copy()
     out.columns = ["provincia", "year", "fallecidos"]
 
-    # Normalización de contenido
     out["provincia"] = out["provincia"].astype(str).map(canonical_province)
     out["year"] = pd.to_numeric(out["year"], errors="coerce")
     out["fallecidos"] = pd.to_numeric(out["fallecidos"], errors="coerce")
@@ -171,8 +228,6 @@ def normalize_official_provinces(df: pd.DataFrame) -> pd.DataFrame:
     out = out.dropna(subset=["provincia", "year", "fallecidos"]).copy()
 
     out["year"] = out["year"].astype(int)
-
-    # El recurso por provincias suele ser anual
     out["month"] = 1
     out["fecha"] = pd.to_datetime(
         dict(year=out["year"], month=out["month"], day=1)
