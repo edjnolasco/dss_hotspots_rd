@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import re
+import unicodedata
+
 
 PROVINCE_ALIASES = {
     "azua": "Azua",
     "bahoruco": "Bahoruco",
     "barahona": "Barahona",
     "dajabon": "Dajabón",
-    "dajabón": "Dajabón",
     "distrito nacional": "Distrito Nacional",
     "distritonacional": "Distrito Nacional",
     "duarte": "Duarte",
@@ -16,10 +18,6 @@ PROVINCE_ALIASES = {
 
     "elias pina": "Elías Piña",
     "eliaspina": "Elías Piña",
-    "elias piña": "Elías Piña",
-    "eliaspiña": "Elías Piña",
-    "elías piña": "Elías Piña",
-    "elíaspiña": "Elías Piña",
 
     "espaillat": "Espaillat",
     "hato mayor": "Hato Mayor",
@@ -37,12 +35,8 @@ PROVINCE_ALIASES = {
     "lavega": "La Vega",
     "maria trinidad sanchez": "María Trinidad Sánchez",
     "mariatrinidadsanchez": "María Trinidad Sánchez",
-    "maría trinidad sánchez": "María Trinidad Sánchez",
-    "maríatrinidadsánchez": "María Trinidad Sánchez",
     "monsenor nouel": "Monseñor Nouel",
     "monsenornouel": "Monseñor Nouel",
-    "monseñor nouel": "Monseñor Nouel",
-    "monseñornouel": "Monseñor Nouel",
     "monte cristi": "Monte Cristi",
     "montecristi": "Monte Cristi",
     "monte plata": "Monte Plata",
@@ -52,51 +46,62 @@ PROVINCE_ALIASES = {
     "puerto plata": "Puerto Plata",
     "puertoplata": "Puerto Plata",
     "samana": "Samaná",
-    "samaná": "Samaná",
     "san cristobal": "San Cristóbal",
     "sancristobal": "San Cristóbal",
-    "san cristóbal": "San Cristóbal",
-    "sancristóbal": "San Cristóbal",
     "san jose de ocoa": "San José de Ocoa",
     "sanjosedeocoa": "San José de Ocoa",
-    "san josé de ocoa": "San José de Ocoa",
-    "sanjosédeocoa": "San José de Ocoa",
     "san juan": "San Juan",
     "sanjuan": "San Juan",
     "san pedro de macoris": "San Pedro de Macorís",
     "sanpedrodemacoris": "San Pedro de Macorís",
-    "san pedro de macorís": "San Pedro de Macorís",
-    "sanpedrodemacorís": "San Pedro de Macorís",
     "sanchez ramirez": "Sánchez Ramírez",
     "sanchezramirez": "Sánchez Ramírez",
-    "sánchez ramírez": "Sánchez Ramírez",
-    "sánchezramírez": "Sánchez Ramírez",
     "santiago": "Santiago",
     "santiago rodriguez": "Santiago Rodríguez",
     "santiagorodriguez": "Santiago Rodríguez",
-    "santiago rodríguez": "Santiago Rodríguez",
-    "santiagorodríguez": "Santiago Rodríguez",
     "santo domingo": "Santo Domingo",
     "santodomingo": "Santo Domingo",
     "valverde": "Valverde",
 }
 
 
+def _strip_accents(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch))
+
+
 def normalize_text(s: str) -> str:
-    return (
-        str(s).strip().lower()
-        .replace("á", "a")
-        .replace("é", "e")
-        .replace("í", "i")
-        .replace("ó", "o")
-        .replace("ú", "u")
-        .replace("ñ", "n")
-    )
+    text = str(s).strip()
+
+    # Normalización Unicode real
+    text = unicodedata.normalize("NFKC", text)
+
+    # Quitar acentos/diacríticos
+    text = _strip_accents(text)
+
+    # Minúsculas
+    text = text.lower()
+
+    # Convertir cualquier bloque de espacios/tabs/non-breaking spaces a un solo espacio
+    text = re.sub(r"\s+", " ", text, flags=re.UNICODE).strip()
+
+    return text
 
 
 def canonical_province(name: str) -> str:
-    return PROVINCE_ALIASES.get(normalize_text(name), str(name).strip())
+    norm = normalize_text(name)
+    compact = norm.replace(" ", "")
+
+    if norm in PROVINCE_ALIASES:
+        return PROVINCE_ALIASES[norm]
+
+    if compact in PROVINCE_ALIASES:
+        return PROVINCE_ALIASES[compact]
+
+    return str(name).strip()
 
 
 def province_key(name: str) -> str:
-    return normalize_text(canonical_province(name)).replace(" ", "_")
+    canon = canonical_province(name)
+    norm = normalize_text(canon)
+    return norm.replace(" ", "_")
