@@ -1,117 +1,132 @@
 from __future__ import annotations
 
-import re
 import unicodedata
 
 
-PROVINCE_ALIASES = {
+def normalize_text(value: str) -> str:
+    text = str(value).strip().lower()
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = "".join(text.split())
+    return text
+
+
+_PROVINCE_ALIASES = {
+    "distritonacional": "distritonacional",
+    "dn": "distritonacional",
+    "dist.nac.": "distritonacional",
+
+    "santodomingo": "santodomingo",
+    "provinciasantodomingo": "santodomingo",
+
+    "elseibo": "elseybo",
+    "elseybo": "elseybo",
+    "seibo": "elseybo",
+
+    "eliaspina": "laestrelleta",
+    "laestrelleta": "laestrelleta",
+    "sanrafael": "laestrelleta",
+
+    "hatomayor": "hatomayor",
+    "hatomayordelrey": "hatomayor",
+    "hatomajor": "hatomayor",
+
+    "hermanasmirabal": "salcedo",
+    "salcedo": "salcedo",
+
+    "laaltagracia": "laaltagracia",
+    "laromana": "laromana",
+    "lavega": "lavega",
+
+    "mariatrinidadsanchez": "mariatrinidadsanchez",
+    "trinidadsanchez": "mariatrinidadsanchez",
+
+    "monsenornouel": "monseñornouel",
+    "monseñornouel": "monseñornouel",
+
+    "montecristi": "montecristi",
+    "monteplata": "monteplata",
+    "puertoplata": "puertoplata",
+
+    "sancristobal": "sancristobal",
+    "sanjosedeocoa": "sanjosedeocoa",
+    "sanjuan": "sanjuan",
+    "sanjuandelamaguana": "sanjuan",
+    "sanpedrodemacoris": "sanpedrodemacoris",
+    "santiagorodriguez": "santiagorodriguez",
+    "sanchezramirez": "sanchezramirez",
+
+    "azua": "azua",
+    "azuadecompostela": "azua",
+    "bahoruco": "bahoruco",
+    "baoruco": "bahoruco",
+    "barahona": "barahona",
+    "dajabon": "dajabon",
+    "duarte": "duarte",
+    "espaillat": "espaillat",
+    "independencia": "independencia",
+    "pedernales": "pedernales",
+    "peravia": "peravia",
+    "samana": "samana",
+    "santiago": "santiago",
+    "santiagodeloscaballeros": "santiago",
+    "valverde": "valverde",
+}
+
+
+_CANONICAL_TO_DISPLAY = {
+    "distritonacional": "Distrito Nacional",
+    "santodomingo": "Santo Domingo",
+    "elseybo": "El Seibo",
+    "laestrelleta": "Elías Piña",
+    "hatomayor": "Hato Mayor",
+    "salcedo": "Hermanas Mirabal",
+    "laaltagracia": "La Altagracia",
+    "laromana": "La Romana",
+    "lavega": "La Vega",
+    "mariatrinidadsanchez": "María Trinidad Sánchez",
+    "monseñornouel": "Monseñor Nouel",
+    "montecristi": "Monte Cristi",
+    "monteplata": "Monte Plata",
+    "puertoplata": "Puerto Plata",
+    "sancristobal": "San Cristóbal",
+    "sanjosedeocoa": "San José de Ocoa",
+    "sanjuan": "San Juan",
+    "sanpedrodemacoris": "San Pedro de Macorís",
+    "santiagorodriguez": "Santiago Rodríguez",
+    "sanchezramirez": "Sánchez Ramírez",
     "azua": "Azua",
     "bahoruco": "Bahoruco",
     "barahona": "Barahona",
     "dajabon": "Dajabón",
-    "distrito nacional": "Distrito Nacional",
-    "distritonacional": "Distrito Nacional",
     "duarte": "Duarte",
     "espaillat": "Espaillat",
-    "hato mayor": "Hato Mayor",
-    "hatomayor": "Hato Mayor",
     "independencia": "Independencia",
-    "la altagracia": "La Altagracia",
-    "laaltagracia": "La Altagracia",
-    "la romana": "La Romana",
-    "laromana": "La Romana",
-    "la vega": "La Vega",
-    "lavega": "La Vega",
-    "maria trinidad sanchez": "María Trinidad Sánchez",
-    "mariatrinidadsanchez": "María Trinidad Sánchez",
-    "monsenor nouel": "Monseñor Nouel",
-    "monsenornouel": "Monseñor Nouel",
-    "monte cristi": "Monte Cristi",
-    "montecristi": "Monte Cristi",
-    "monte plata": "Monte Plata",
-    "monteplata": "Monte Plata",
     "pedernales": "Pedernales",
     "peravia": "Peravia",
-    "puerto plata": "Puerto Plata",
-    "puertoplata": "Puerto Plata",
     "samana": "Samaná",
-    "san cristobal": "San Cristóbal",
-    "sancristobal": "San Cristóbal",
-    "san jose de ocoa": "San José de Ocoa",
-    "sanjosedeocoa": "San José de Ocoa",
-    "san juan": "San Juan",
-    "sanjuan": "San Juan",
-    "san pedro de macoris": "San Pedro de Macorís",
-    "sanpedrodemacoris": "San Pedro de Macorís",
-    "sanchez ramirez": "Sánchez Ramírez",
-    "sanchezramirez": "Sánchez Ramírez",
     "santiago": "Santiago",
-    "santiago rodriguez": "Santiago Rodríguez",
-    "santiagorodriguez": "Santiago Rodríguez",
-    "santo domingo": "Santo Domingo",
-    "santodomingo": "Santo Domingo",
     "valverde": "Valverde",
-
-    # =========================
-    # Casos especiales GADM / históricos
-    # =========================
-
-    # El Seibo
-    "el seibo": "El Seibo",
-    "elseibo": "El Seibo",
-    "el seybo": "El Seibo",
-    "elseybo": "El Seibo",
-
-    # Elías Piña
-    "elias pina": "Elías Piña",
-    "eliaspina": "Elías Piña",
-    "laestrelleta": "Elías Piña",
-    "la estrelleta": "Elías Piña",
-
-    # Hermanas Mirabal (Salcedo histórico)
-    "hermanas mirabal": "Hermanas Mirabal",
-    "hermanasmirabal": "Hermanas Mirabal",
-    "salcedo": "Hermanas Mirabal",
 }
 
 
-def _strip_accents(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text)
-    return "".join(ch for ch in text if not unicodedata.combining(ch))
+def canonical_province(value: str) -> str:
+    text = normalize_text(value)
+    return _PROVINCE_ALIASES.get(text, text)
 
 
-def normalize_text(s: str) -> str:
-    text = str(s).strip()
-
-    # Normalización Unicode real
-    text = unicodedata.normalize("NFKC", text)
-
-    # Quitar acentos/diacríticos
-    text = _strip_accents(text)
-
-    # Minúsculas
-    text = text.lower()
-
-    # Convertir cualquier bloque de espacios/tabs/non-breaking spaces a un solo espacio
-    text = re.sub(r"\s+", " ", text, flags=re.UNICODE).strip()
-
-    return text
+def display_province_name(value: str) -> str:
+    canonical = canonical_province(value)
+    return _CANONICAL_TO_DISPLAY.get(canonical, str(value).strip())
 
 
-def canonical_province(name: str) -> str:
-    norm = normalize_text(name)
-    compact = norm.replace(" ", "")
+def build_geo_aliases(raw_name: str, varname: str | None = None) -> set[str]:
+    aliases = {canonical_province(raw_name)}
 
-    if norm in PROVINCE_ALIASES:
-        return PROVINCE_ALIASES[norm]
+    if varname and str(varname).strip() and str(varname).strip().upper() != "NA":
+        for part in str(varname).split("|"):
+            alias = part.strip()
+            if alias:
+                aliases.add(canonical_province(alias))
 
-    if compact in PROVINCE_ALIASES:
-        return PROVINCE_ALIASES[compact]
-
-    return str(name).strip()
-
-
-def province_key(name: str) -> str:
-    canon = canonical_province(name)
-    norm = normalize_text(canon)
-    return norm.replace(" ", "_")
+    return aliases
