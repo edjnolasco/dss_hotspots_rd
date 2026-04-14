@@ -175,12 +175,7 @@ def extract_selected_province(event: Any, fallback_df: pd.DataFrame) -> str | No
     if not event:
         return None
 
-    selection = None
-    if isinstance(event, dict):
-        selection = event.get("selection")
-    else:
-        selection = getattr(event, "selection", None)
-
+    selection = event.get("selection") if isinstance(event, dict) else getattr(event, "selection", None)
     if not selection:
         return None
 
@@ -190,7 +185,13 @@ def extract_selected_province(event: Any, fallback_df: pd.DataFrame) -> str | No
 
     point = points[0]
 
-    for key in ("location", "x", "label", "hovertext"):
+    customdata = point.get("customdata")
+    if isinstance(customdata, (list, tuple)) and len(customdata) > 0:
+        first = customdata[0]
+        if isinstance(first, str) and first.strip():
+            return first
+
+    for key in ("location", "hovertext", "label", "x", "text"):
         value = point.get(key)
         if isinstance(value, str) and value.strip():
             return value
@@ -260,6 +261,10 @@ def build_province_detail_row(
 
 def render_province_drilldown(scored_df: pd.DataFrame, province_name: str, selected_year: int) -> None:
     """Renderiza el panel drill-down para la provincia seleccionada."""
+    if not province_name:
+        st.info("Selecciona una provincia en el mapa o en el selector para ver el drill-down.")
+        return
+
     province_history = (
         scored_df[scored_df["provincia"] == province_name]
         .sort_values("year")
@@ -468,7 +473,12 @@ metric_column = fcol3.selectbox(
     options=["score_riesgo", "fallecidos_actuales", "pred_fallecidos_next", "delta_pct"],
     index=0,
 )
-top_n = fcol4.slider("Top-N", min_value=3, max_value=max(3, len(available_provinces_for_year)), value=min(10, max(3, len(available_provinces_for_year))))
+top_n = fcol4.slider(
+    "Top-N",
+    min_value=3,
+    max_value=max(3, len(available_provinces_for_year)),
+    value=min(10, max(3, len(available_provinces_for_year))),
+)
 
 show_top_only = st.checkbox("Mostrar solo Top-N en ranking y mapa", value=False)
 
@@ -536,6 +546,8 @@ with tab1:
     st.plotly_chart(fig_scatter, use_container_width=True)
 
 with tab2:
+    selected_province = st.session_state.get("selected_province")
+
     if geo_mode == "Omitir mapa":
         st.info("Mapa omitido.")
     else:
@@ -550,18 +562,23 @@ with tab2:
                     geo_source = uploaded_geo.getvalue().decode("utf-8")
 
             if geo_source is not None:
-                map_result = build_rd_choropleth_from_source(
-                    filtered_ranking,
-                    geo_source,
-                    province_column="provincia",
-                    color_column=metric_column,
-                    title=f"Mapa nacional por provincia - {selected_year}",
-                )
+                province_options = filtered_ranking["provincia"].tolist()
+                if selected_province not in province_options:
+                    selected_province = None
+                    st.session_state["selected_province"] = None
 
                 left_map_col, right_focus_col = st.columns([1.6, 1.0])
 
                 with left_map_col:
                     st.markdown("### Vista nacional")
+
+                    map_result = build_rd_choropleth_from_source(
+                        filtered_ranking,
+                        geo_source,
+                        province_column="provincia",
+                        color_column=metric_column,
+                        title=f"Mapa nacional por provincia - {selected_year}",
+                    )
 
                     figure = map_result["figure"]
                     figure.update_layout(clickmode="event+select")
@@ -574,8 +591,9 @@ with tab2:
                     )
 
                     clicked_province = extract_selected_province(event, filtered_ranking)
-                    if clicked_province:
+                    if clicked_province and clicked_province in province_options:
                         st.session_state["selected_province"] = clicked_province
+                        selected_province = clicked_province
 
                     coverage, unmatched_count = build_geo_quality_summary(
                         filtered_ranking,
@@ -593,53 +611,62 @@ with tab2:
                             f"{unmatched_provinces}"
                         )
 
-                province_options = filtered_ranking["provincia"].tolist()
-
                 with right_focus_col:
                     st.markdown("### Vista focalizada")
 
-                    default_index = (
-                        province_options.index(st.session_state["selected_province"])
-                        if st.session_state["selected_province"] in province_options
+                    select_options = ["-- Sin selección --"] + province_options
+                    current_value = st.session_state.get("selected_province")
+                    current_index = (
+                        select_options.index(current_value)
+                        if current_value in province_options
                         else 0
                     )
 
-                    selected_province = st.selectbox(
+                    selected_option = st.selectbox(
                         "Provincia seleccionada",
-                        options=province_options,
-                        index=default_index,
+                        options=select_options,
+                        index=current_index,
+                        key="province_selectbox_drilldown",
                     )
-                    st.session_state["selected_province"] = selected_province
 
-                    clear_selection = st.button("Limpiar selección", use_container_width=True)
-                    if clear_selection:
+                    if selected_option == "-- Sin selección --":
+                        selected_province = None
                         st.session_state["selected_province"] = None
-                        selected_province = province_options[0]
+                    else:
+                        selected_province = selected_option
+                        st.session_state["selected_province"] = selected_option
 
-                    focus_df = filtered_ranking[
-                        filtered_ranking["provincia"] == selected_province
-                    ].copy()
+                    if st.button("Limpiar selección", use_container_width=True):
+                        st.session_state["selected_province"] = None
+                        st.rerun()
 
-                    focus_map_result = build_rd_choropleth_from_source(
-                        focus_df,
-                        geo_source,
-                        province_column="provincia",
-                        color_column=metric_column,
-                        title=f"Provincia en foco - {selected_province} ({selected_year})",
-                    )
+                    if selected_province:
+                        focus_df = filtered_ranking[
+                            filtered_ranking["provincia"] == selected_province
+                        ].copy()
 
-                    focus_figure = focus_map_result["figure"]
-                    focus_figure.update_layout(
-                        height=520,
-                        margin=dict(l=10, r=10, t=50, b=10),
-                    )
-                    st.plotly_chart(focus_figure, use_container_width=True)
+                        focus_map_result = build_rd_choropleth_from_source(
+                            focus_df,
+                            geo_source,
+                            province_column="provincia",
+                            color_column=metric_column,
+                            title=f"Provincia en foco - {selected_province} ({selected_year})",
+                        )
 
-                    if not focus_df.empty:
-                        province_row = focus_df.iloc[0]
-                        st.metric("Provincia en foco", province_row["provincia"])
-                        st.metric("Categoría", str(province_row["categoria"]))
-                        st.metric("Score actual", f"{float(province_row['score_riesgo']):.3f}")
+                        focus_figure = focus_map_result["figure"]
+                        focus_figure.update_layout(
+                            height=520,
+                            margin=dict(l=10, r=10, t=50, b=10),
+                        )
+                        st.plotly_chart(focus_figure, use_container_width=True)
+
+                        if not focus_df.empty:
+                            province_row = focus_df.iloc[0]
+                            st.metric("Provincia en foco", province_row["provincia"])
+                            st.metric("Categoría", str(province_row["categoria"]))
+                            st.metric("Score actual", f"{float(province_row['score_riesgo']):.3f}")
+                    else:
+                        st.info("Haz click en una provincia del mapa nacional o selecciónala en el desplegable.")
 
                 st.markdown("---")
                 render_province_drilldown(scored_df, selected_province, selected_year)
