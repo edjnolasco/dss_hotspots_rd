@@ -9,7 +9,12 @@ from sklearn.metrics import mean_absolute_error, r2_score
 
 
 def run_pipeline(df: pd.DataFrame) -> dict[str, Any]:
-    required_cols = {"provincia", "provincia_canonica", "year", "fallecidos"}
+    required_cols = {
+        "provincia",
+        "provincia_canonica",
+        "year",
+        "fallecidos",
+    }
     missing = required_cols - set(df.columns)
     if missing:
         raise KeyError(
@@ -56,7 +61,8 @@ def run_pipeline(df: pd.DataFrame) -> dict[str, Any]:
 
     latest_year = int(scored_df["year"].max())
 
-    metricas_df = _build_metrics_df(scored_df, latest_year)
+    ranking_df = _build_ranking_df(scored_df, latest_year)
+    metricas_df = _build_metrics_df(scored_df, ranking_df, latest_year)
     narrative_text = _build_narrative_text(
         scored_df=scored_df,
         metricas_df=metricas_df,
@@ -67,6 +73,7 @@ def run_pipeline(df: pd.DataFrame) -> dict[str, Any]:
 
     return {
         "scored_df": scored_df,
+        "ranking_df": ranking_df,
         "metricas_df": metricas_df,
         "explain_df": explain_df,
         "narrative_text": narrative_text,
@@ -129,9 +136,10 @@ def _fit_and_score(
         "delta_2",
     ]
 
-    # Algunas columnas pueden quedar casi vacías según la profundidad temporal.
     usable_feature_cols = [
-        col for col in feature_cols if col in featured.columns and featured[col].notna().any()
+        col
+        for col in feature_cols
+        if col in featured.columns and featured[col].notna().any()
     ]
 
     train_df = featured.copy()
@@ -158,7 +166,6 @@ def _fit_and_score(
         scored_df[col] = scored_df[col].fillna(scored_df[col].median())
 
     scored_df["pred_fallecidos_next"] = model.predict(scored_df[usable_feature_cols])
-
     scored_df = _decorate_scored_df(scored_df)
 
     explain_df = pd.DataFrame(
@@ -180,7 +187,6 @@ def _build_fallback_scored_df(grouped: pd.DataFrame) -> pd.DataFrame:
     df["lag_1"] = g["fallecidos"].shift(1)
     df["lag_2"] = g["fallecidos"].shift(2)
 
-    # Fallback simple: último valor conocido o promedio simple
     df["pred_fallecidos_next"] = np.where(
         df["lag_1"].notna(),
         df["lag_1"],
@@ -195,7 +201,8 @@ def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
     df = scored_df.copy()
 
     df["pred_fallecidos_next"] = pd.to_numeric(
-        df["pred_fallecidos_next"], errors="coerce"
+        df["pred_fallecidos_next"],
+        errors="coerce",
     ).fillna(df["fallecidos"])
 
     # Score relativo por año para mantener comparabilidad visual
@@ -216,7 +223,6 @@ def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
         (df["delta_abs"] / df["fallecidos_actuales"]) * 100.0,
     )
 
-    # Orden final estable y visible
     df = df[
         [
             "provincia",
@@ -232,26 +238,101 @@ def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
         ]
     ].copy()
 
-    df = df.sort_values(["year", "score_riesgo"], ascending=[True, False]).reset_index(drop=True)
+    df = df.sort_values(
+        ["year", "score_riesgo"],
+        ascending=[True, False],
+    ).reset_index(drop=True)
     return df
 
 
-def _build_metrics_df(scored_df: pd.DataFrame, latest_year: int) -> pd.DataFrame:
+def _build_ranking_df(scored_df: pd.DataFrame, latest_year: int) -> pd.DataFrame:
+    latest = (
+        scored_df[scored_df["year"] == latest_year]
+        .sort_values("score_riesgo", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    if latest.empty:
+        return pd.DataFrame(
+            columns=[
+                "provincia",
+                "pred_fallecidos_next",
+                "score_riesgo",
+                "categoria",
+                "fallecidos_actuales",
+                "delta_abs",
+                "delta_pct",
+                "ranking_posicion",
+            ]
+        )
+
+    ranking_df = latest.copy()
+    ranking_df["ranking_posicion"] = range(1, len(ranking_df) + 1)
+
+    ranking_df = ranking_df[
+        [
+            "provincia",
+            "pred_fallecidos_next",
+            "score_riesgo",
+            "categoria",
+            "fallecidos_actuales",
+            "delta_abs",
+            "delta_pct",
+            "ranking_posicion",
+        ]
+    ].copy()
+
+    return ranking_df
+
+
+def _build_metrics_df(
+    scored_df: pd.DataFrame,
+    ranking_df: pd.DataFrame,
+    latest_year: int,
+) -> pd.DataFrame:
     latest = scored_df[scored_df["year"] == latest_year].copy()
 
     if latest.empty:
         return pd.DataFrame(
             {
-                "metrica": ["top_1_score", "top_3_score_promedio", "provincias_analizadas"],
-                "valor": [0.0, 0.0, 0.0],
+                "metrica": [
+                    "top_1_score",
+                    "top_3_score_promedio",
+                    "provincias_analizadas",
+                    "hitrate_at_1",
+                    "hitrate_at_3",
+                    "hitrate_at_5",
+                    "topk_accuracy_at_1",
+                    "topk_accuracy_at_3",
+                    "topk_accuracy_at_5",
+                    "precision_at_1",
+                    "precision_at_3",
+                    "precision_at_5",
+                ],
+                "valor": [0.0] * 12,
             }
         )
 
-    latest = latest.sort_values("score_riesgo", ascending=False).reset_index(drop=True)
+    latest_pred = latest.sort_values("score_riesgo", ascending=False).reset_index(drop=True)
+    latest_actual = latest.sort_values("fallecidos_actuales", ascending=False).reset_index(drop=True)
 
-    top_1_score = float(latest.iloc[0]["score_riesgo"])
-    top_3_score_promedio = float(latest.head(min(3, len(latest)))["score_riesgo"].mean())
-    provincias_analizadas = float(latest["provincia_canonica"].nunique())
+    top_1_score = float(latest_pred.iloc[0]["score_riesgo"])
+    top_3_score_promedio = float(
+        latest_pred.head(min(3, len(latest_pred)))["score_riesgo"].mean()
+    )
+    provincias_analizadas = float(latest_pred["provincia_canonica"].nunique())
+
+    hitrate_1 = _hit_rate_at_k(latest_pred, latest_actual, 1)
+    hitrate_3 = _hit_rate_at_k(latest_pred, latest_actual, 3)
+    hitrate_5 = _hit_rate_at_k(latest_pred, latest_actual, 5)
+
+    topk_accuracy_1 = hitrate_1
+    topk_accuracy_3 = hitrate_3
+    topk_accuracy_5 = hitrate_5
+
+    precision_1 = _precision_at_k(latest_pred, latest_actual, 1)
+    precision_3 = _precision_at_k(latest_pred, latest_actual, 3)
+    precision_5 = _precision_at_k(latest_pred, latest_actual, 5)
 
     return pd.DataFrame(
         {
@@ -259,11 +340,29 @@ def _build_metrics_df(scored_df: pd.DataFrame, latest_year: int) -> pd.DataFrame
                 "top_1_score",
                 "top_3_score_promedio",
                 "provincias_analizadas",
+                "hitrate_at_1",
+                "hitrate_at_3",
+                "hitrate_at_5",
+                "topk_accuracy_at_1",
+                "topk_accuracy_at_3",
+                "topk_accuracy_at_5",
+                "precision_at_1",
+                "precision_at_3",
+                "precision_at_5",
             ],
             "valor": [
                 top_1_score,
                 top_3_score_promedio,
                 provincias_analizadas,
+                hitrate_1,
+                hitrate_3,
+                hitrate_5,
+                topk_accuracy_1,
+                topk_accuracy_3,
+                topk_accuracy_5,
+                precision_1,
+                precision_3,
+                precision_5,
             ],
         }
     )
@@ -300,6 +399,15 @@ def _build_narrative_text(
     mae_text = "N/D" if mae is None else f"{mae:.3f}"
     r2_text = "N/D" if r2 is None else f"{r2:.3f}"
 
+    def _metric_value(name: str) -> str:
+        row = metricas_df.loc[metricas_df["metrica"] == name, "valor"]
+        if row.empty:
+            return "N/D"
+        return f"{float(row.iloc[0]):.3f}"
+
+    hit3_text = _metric_value("hitrate_at_3")
+    hit5_text = _metric_value("hitrate_at_5")
+
     return (
         f"Para el año {latest_year}, la provincia con mayor prioridad estimada es "
         f"{top['provincia']}, con un score de riesgo de {top['score_riesgo']:.3f} y "
@@ -307,9 +415,38 @@ def _build_narrative_text(
         f"Las tres provincias mejor posicionadas en la priorización actual son: "
         f"{', '.join(top3)}. "
         f"El desempeño global del modelo reporta un MAE de {mae_text} y un R² de {r2_text}. "
+        f"En términos de priorización Top-K, el HitRate@3 es {hit3_text} y el HitRate@5 es {hit5_text}. "
         f"Esta salida se construye agrupando por provincia canónica para evitar duplicidades "
         f"nominales, pero conservando el nombre visible de provincia para la capa de visualización."
     )
+
+
+def _hit_rate_at_k(
+    pred_df: pd.DataFrame,
+    actual_df: pd.DataFrame,
+    k: int,
+) -> float:
+    pred_top = set(pred_df.head(min(k, len(pred_df)))["provincia_canonica"].astype(str))
+    actual_top = set(actual_df.head(min(k, len(actual_df)))["provincia_canonica"].astype(str))
+
+    if not actual_top:
+        return 0.0
+
+    return float(len(pred_top & actual_top) / len(actual_top))
+
+
+def _precision_at_k(
+    pred_df: pd.DataFrame,
+    actual_df: pd.DataFrame,
+    k: int,
+) -> float:
+    pred_top = set(pred_df.head(min(k, len(pred_df)))["provincia_canonica"].astype(str))
+    actual_top = set(actual_df.head(min(k, len(actual_df)))["provincia_canonica"].astype(str))
+
+    if not pred_top:
+        return 0.0
+
+    return float(len(pred_top & actual_top) / len(pred_top))
 
 
 def _minmax_scale(series: pd.Series) -> pd.Series:
