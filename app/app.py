@@ -481,7 +481,7 @@ filtered_ranking = apply_interactive_filters(
 )
 
 if filtered_ranking.empty:
-    st.warning("No hay datos disponibles con la combinación actual de filtros.")    
+    st.warning("No hay datos disponibles con la combinación actual de filtros.")
     st.stop()
 
 summary_left, summary_right = st.columns([2, 1])
