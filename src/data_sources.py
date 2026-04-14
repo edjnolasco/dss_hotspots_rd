@@ -150,7 +150,9 @@ def normalize_official_provinces(df: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
-    normalized = normalized.dropna(subset=["provincia_raw", "year", "fallecidos"]).copy()
+    normalized = normalized.dropna(
+        subset=["provincia_raw", "year", "fallecidos"]
+    ).copy()
 
     normalized["year"] = normalized["year"].astype(int)
     normalized["fallecidos"] = normalized["fallecidos"].astype(float)
@@ -176,7 +178,27 @@ def normalize_official_provinces(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index(drop=True)
     )
 
-    return normalized
+    # Garantías mínimas para el pipeline / CI
+    # Dataset anual por provincia: se fija month=1 y fecha=YYYY-01-01.
+    normalized["month"] = 1
+    normalized["fecha"] = pd.to_datetime(
+        dict(year=normalized["year"], month=normalized["month"], day=1),
+        errors="coerce",
+    )
+
+    # Orden estable de columnas principales
+    ordered_cols = [
+        "provincia",
+        "provincia_canonica",
+        "year",
+        "month",
+        "fecha",
+        "fallecidos",
+    ]
+    remaining_cols = [c for c in normalized.columns if c not in ordered_cols]
+    normalized = normalized[ordered_cols + remaining_cols].copy()
+
+    return normalized.reset_index(drop=True)
 
 
 def _resolve_column(
