@@ -5,17 +5,14 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-<<<<<<< HEAD
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-=======
 import streamlit as st
 from streamlit_plotly_events import plotly_events
 
 APP_DIR = Path(__file__).resolve().parent
 ROOT = APP_DIR if (APP_DIR / "src").exists() else APP_DIR.parent
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
 
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
@@ -27,7 +24,6 @@ from src.data_sources import (  # noqa: E402
     normalize_official_provinces,
     read_dataframe_from_bytes,
 )
-<<<<<<< HEAD
 from src.exporter import to_csv_bytes, to_excel_bytes  # noqa: E402
 from src.map_utils import build_rd_choropleth_from_source  # noqa: E402
 from src.pipeline import run_pipeline  # noqa: E402
@@ -37,7 +33,6 @@ from src.version import AUTHOR, PROJECT_NAME, VERSION  # noqa: E402
 # ============================================================
 # CONFIGURACIÓN STREAMLIT
 # ============================================================
-=======
 from src.pipeline import run_pipeline  # noqa: E402
 from src.state import ensure_session_state, reset_selection_state  # noqa: E402
 from src.ui_map import (  # noqa: E402
@@ -166,14 +161,12 @@ def coerce_top_n(num_items: int, current_value: int | None) -> int:
     return min(max(current_value, 3), num_items)
 
 
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
 st.set_page_config(page_title=f"{PROJECT_NAME} {VERSION}", layout="wide")
 st.title(f"{PROJECT_NAME} {VERSION}")
 st.caption(f"Autor: {AUTHOR}")
 
 ensure_app_state()
 
-<<<<<<< HEAD
 # ============================================================
 # ESTADO DE SESIÓN
 # ============================================================
@@ -449,7 +442,6 @@ def render_province_drilldown(scored_df: pd.DataFrame, province_name: str, selec
 # ============================================================
 # SIDEBAR
 # ============================================================
-=======
 
 @st.cache_data(show_spinner=False)
 def load_data_remote() -> pd.DataFrame:
@@ -477,7 +469,6 @@ def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
     return run_pipeline(df)
 
 
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
 with st.sidebar:
     st.header("Fuente de datos")
     source_mode = st.radio(
@@ -508,23 +499,17 @@ with st.sidebar:
     st.header("GeoJSON")
     geo_mode = st.radio(
         "Selecciona la fuente del mapa",
-<<<<<<< HEAD
         ["Ruta local", "Subir GeoJSON", "Omitir mapa"],
         index=0,
-=======
         GEO_OPTIONS,
         key="geo_mode",
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
     )
 
     geo_local_path = (
         st.text_input(
             "Ruta local del GeoJSON",
-<<<<<<< HEAD
             value=str(ROOT / "data" / "rd_provinces.geojson"),
-=======
             key="geo_local_path",
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
         )
         if geo_mode == "Ruta local"
         else st.session_state.get("geo_local_path", "")
@@ -546,7 +531,6 @@ with st.sidebar:
         key="debug_map_click",
     )
 
-<<<<<<< HEAD
 
 # ============================================================
 # CACHÉ
@@ -580,7 +564,6 @@ def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
 # ============================================================
 # CARGA Y ANÁLISIS
 # ============================================================
-=======
     run_clicked = st.button(
         "Ejecutar análisis",
         type="primary",
@@ -588,7 +571,6 @@ def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
         key="run_analysis_button",
     )
 
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
 if run_clicked:
     try:
         if source_mode == "Fuente oficial DIGESETT":
@@ -597,14 +579,11 @@ if run_clicked:
                 source_label = "Fuente oficial DIGESETT"
             except Exception:
                 st.error(
-<<<<<<< HEAD
                     "La fuente oficial DIGESETT rechazó la descarga remota (HTTP 403 o acceso restringido). "
                     "Usa la opción 'Subir CSV/XLSX' con el archivo oficial descargado manualmente."
-=======
                     "La fuente oficial DIGESETT rechazó la descarga remota "
                     "(HTTP 403 o acceso restringido). Usa la opción "
                     "'Subir CSV/XLSX' con el archivo oficial descargado manualmente."
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
                 )
                 st.stop()
 
@@ -625,7 +604,6 @@ if run_clicked:
 
         st.session_state["analysis_results"] = process_pipeline(normalized_df)
         st.session_state["source_label"] = source_label
-<<<<<<< HEAD
         st.session_state["selected_province"] = None
         st.success("Análisis ejecutado correctamente.")
 
@@ -639,7 +617,6 @@ if run_clicked:
 # ============================================================
 results = st.session_state.get("analysis_results")
 
-=======
 
         reset_selection_state()
         st.session_state["selected_province"] = None
@@ -660,7 +637,6 @@ results = st.session_state.get("analysis_results")
 
 results = st.session_state.get("analysis_results")
 
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
 if not results:
     st.info("Configura la fuente de datos y ejecuta el análisis.")
     st.markdown("### Fuente oficial prevista")
@@ -680,7 +656,6 @@ scored_df = results["scored_df"].copy()
 metricas_df = results["metricas_df"].copy()
 explain_df = results["explain_df"].copy()
 
-<<<<<<< HEAD
 years = sorted(scored_df["year"].dropna().astype(int).unique().tolist())
 default_year = int(results.get("latest_year", years[-1]))
 
@@ -715,7 +690,6 @@ show_top_only = st.checkbox("Mostrar solo Top-N en ranking y mapa", value=False)
 base_year_ranking = build_year_ranking(scored_df, selected_year)
 filtered_ranking = apply_interactive_filters(
     base_year_ranking,
-=======
 all_years = sorted(scored_df["year"].dropna().astype(int).unique().tolist())
 default_year = int(results.get("latest_year", all_years[-1]))
 
@@ -828,7 +802,6 @@ filtered_ranking = build_year_ranking(base_multi_year, int(base_multi_year["year
 
 filtered_ranking = apply_interactive_filters(
     ranking_df=filtered_ranking,
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
     selected_provinces=selected_provinces,
     top_n=top_n,
     show_top_only=show_top_only,
@@ -838,7 +811,6 @@ if filtered_ranking.empty:
     st.warning("No hay datos disponibles con la combinación actual de filtros.")
     st.stop()
 
-<<<<<<< HEAD
 summary_left, summary_right = st.columns([2, 1])
 
 with summary_left:
@@ -893,7 +865,6 @@ with tab1:
 with tab2:
     selected_province = st.session_state.get("selected_province")
 
-=======
 province_options = filtered_ranking["provincia"].dropna().astype(str).tolist()
 sync_focus_province(province_options)
 
@@ -933,12 +904,10 @@ if active_section == "Ranking":
     render_ranking_tab(filtered_ranking=filtered_ranking, top_n=top_n)
 
 elif active_section == "Mapa y drill-down":
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
     if geo_mode == "Omitir mapa":
         st.info("Mapa omitido.")
     else:
         try:
-<<<<<<< HEAD
             if geo_mode == "Ruta local":
                 geo_source = geo_local_path
             else:
@@ -953,7 +922,6 @@ elif active_section == "Mapa y drill-down":
                 if selected_province not in province_options:
                     selected_province = None
                     st.session_state["selected_province"] = None
-=======
             geo_source = load_geojson_source(
                 geo_mode=geo_mode,
                 geo_local_path=geo_local_path,
@@ -972,14 +940,12 @@ elif active_section == "Mapa y drill-down":
                     title=f"Mapa nacional por provincia - {selected_year_label}",
                     selected_province=selected_province,
                 )
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
 
                 left_map_col, right_focus_col = st.columns([1.6, 1.0])
 
                 with left_map_col:
                     st.markdown("### Vista nacional")
 
-<<<<<<< HEAD
                     map_result = build_rd_choropleth_from_source(
                         filtered_ranking,
                         geo_source,
@@ -1006,7 +972,6 @@ elif active_section == "Mapa y drill-down":
                     coverage, unmatched_count = build_geo_quality_summary(
                         filtered_ranking,
                         map_result.get("unmatched_provinces", []),
-=======
                     figure = map_result["figure"]
                     selected_points = plotly_events(
                         figure,
@@ -1057,7 +1022,6 @@ elif active_section == "Mapa y drill-down":
                     coverage, unmatched_count = build_geo_quality_summary(
                         base_ranking_df=filtered_ranking,
                         unmatched_provinces=map_result.get("unmatched_provinces", []),
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
                     )
 
                     q1, q2 = st.columns(2)
@@ -1071,7 +1035,6 @@ elif active_section == "Mapa y drill-down":
                             f"{unmatched_provinces}"
                         )
 
-<<<<<<< HEAD
                 with right_focus_col:
                     st.markdown("### Vista focalizada")
 
@@ -1131,7 +1094,6 @@ elif active_section == "Mapa y drill-down":
 
                 st.markdown("---")
                 render_province_drilldown(scored_df, selected_province, selected_year)
-=======
                     st.caption(
                         "Haz clic sobre una provincia en el mapa nacional para actualizar la vista focalizada y dejarla marcada."
                     )
@@ -1213,12 +1175,10 @@ elif active_section == "Mapa y drill-down":
                     province_name=st.session_state["selected_province"],
                     selected_year=drill_year,
                 )
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
 
         except Exception as exc:
             st.warning(f"No fue posible generar el mapa: {exc}")
 
-<<<<<<< HEAD
 
 with tab3:
     st.dataframe(metricas_df, use_container_width=True)
@@ -1282,7 +1242,6 @@ with tab6:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
     )
-=======
 elif active_section == "Métricas":
     render_metrics_tab(metricas_df=metricas_df)
 
@@ -1303,4 +1262,3 @@ elif active_section == "Exportación":
         version=VERSION,
         selected_year=max(selected_years),
     )
->>>>>>> ad52dd7 (feat: improve DSS UI interaction, map rendering and category normalization)
