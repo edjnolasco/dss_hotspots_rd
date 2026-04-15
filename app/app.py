@@ -178,6 +178,9 @@ def process_uploaded_data(file_name: str, file_bytes: bytes) -> pd.DataFrame:
     raw = read_dataframe_from_bytes(file_bytes, filename_hint=file_name)
     return normalize_official_provinces(raw)
 
+@st.cache_data(show_spinner=False)
+def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
+    return run_pipeline(df)
 
 @st.cache_data(show_spinner=False)
 def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
