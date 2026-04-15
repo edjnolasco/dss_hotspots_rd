@@ -9,12 +9,14 @@ import streamlit as st
 
 from src.exporter import to_csv_bytes, to_excel_bytes
 
+FULL_WIDTH = "stretch"
+
 CATEGORY_COLOR_MAP = {
-    "Alta prioridad": "#e74c3c",            # 🔴 rojo
-    "Vigilancia preventiva": "#f39c12",     # 🟡 amarillo
-    "Seguimiento rutinario": "#2ecc71",     # 🟢 verde
-    "N/D": "#bdc3c7",                       # ⚪ gris
+    "Alta": "#e74c3c",
+    "Media": "#d4c61c",
+    "Baja": "#48c774",
 }
+
 
 def safe_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     safe_df = df.copy().reset_index(drop=True)
@@ -49,16 +51,12 @@ def _normalize_category_value(value: Any) -> str:
 
     text = str(value).strip().lower()
     mapping = {
-        "alta prioridad": "Alta prioridad",
-        "alta": "Alta prioridad",
-        "alto": "Alta prioridad",
-        "vigilancia preventiva": "Vigilancia preventiva",
-        "media": "Vigilancia preventiva",
-        "medio": "Vigilancia preventiva",
-        "media-alta": "Vigilancia preventiva",
-        "seguimiento rutinario": "Seguimiento rutinario",
-        "baja": "Seguimiento rutinario",
-        "bajo": "Seguimiento rutinario",
+        "alta": "Alta",
+        "alto": "Alta",
+        "media": "Media",
+        "medio": "Media",
+        "baja": "Baja",
+        "bajo": "Baja",
     }
     return mapping.get(text, str(value))
 
@@ -66,14 +64,10 @@ def _normalize_category_value(value: Any) -> str:
 def _category_rank(value: Any) -> int:
     text = str(value).strip().lower()
     mapping = {
-        "alta prioridad": 3,
         "alta": 3,
         "alto": 3,
-        "vigilancia preventiva": 2,
         "media": 2,
         "medio": 2,
-        "media-alta": 2,
-        "seguimiento rutinario": 1,
         "baja": 1,
         "bajo": 1,
     }
@@ -94,7 +88,6 @@ def kpi_dashboard(ranking_df: pd.DataFrame, metric_column: str) -> go.Figure:
         return fig
 
     ranking = ranking_df.copy()
-    ranking = _prepare_category_column(ranking)
 
     if metric_column in ranking.columns:
         if metric_column == "categoria":
@@ -199,36 +192,20 @@ def build_year_ranking(scored_df: pd.DataFrame, selected_year: int) -> pd.DataFr
                 "pred_fallecidos_next",
                 "score_riesgo",
                 "categoria",
-                "regla_aplicada",
-                "justificacion_regla",
-                "recomendacion",
                 "fallecidos_actuales",
                 "delta_abs",
                 "delta_pct",
             ]
         )
 
-    agg_dict: dict[str, Any] = {
-        "pred_fallecidos_next": ("pred_fallecidos_next", "mean"),
-        "score_riesgo": ("score_riesgo", "mean"),
-        "categoria": ("categoria", "first"),
-    }
-
-    if "regla_aplicada" in filtered.columns:
-        agg_dict["regla_aplicada"] = ("regla_aplicada", "first")
-    if "justificacion_regla" in filtered.columns:
-        agg_dict["justificacion_regla"] = ("justificacion_regla", "first")
-    if "recomendacion" in filtered.columns:
-        agg_dict["recomendacion"] = ("recomendacion", "first")
-
-    if "fallecidos_actuales" in filtered.columns:
-        agg_dict["fallecidos_actuales"] = ("fallecidos_actuales", "sum")
-    else:
-        agg_dict["fallecidos_actuales"] = ("fallecidos", "sum")
-
     ranking = (
         filtered.groupby("provincia", as_index=False)
-        .agg(**agg_dict)
+        .agg(
+            pred_fallecidos_next=("pred_fallecidos_next", "mean"),
+            score_riesgo=("score_riesgo", "mean"),
+            categoria=("categoria", "first"),
+            fallecidos_actuales=("fallecidos", "sum"),
+        )
         .sort_values("score_riesgo", ascending=False)
         .reset_index(drop=True)
     )
@@ -286,12 +263,12 @@ def build_province_detail_row(
 
     explanation_parts: list[str] = []
 
-    categoria = _normalize_category_value(current_row.get("categoria", "N/D"))
-    explanation_parts.append(f"clasificación DSS actual: {categoria}")
-
-    regla = str(current_row.get("regla_aplicada", "")).strip()
-    if regla:
-        explanation_parts.append(f"regla aplicada: {regla}")
+    if float(current_row["score_riesgo"]) >= 0.75:
+        explanation_parts.append("score de riesgo elevado")
+    elif float(current_row["score_riesgo"]) >= 0.50:
+        explanation_parts.append("score de riesgo medio-alto")
+    else:
+        explanation_parts.append("score de riesgo moderado")
 
     if yoy_abs is not None:
         if yoy_abs > 0:
@@ -301,16 +278,17 @@ def build_province_detail_row(
         else:
             explanation_parts.append("comportamiento estable frente al año previo")
 
+    explanation_parts.append(
+        f"clasificación actual: {_normalize_category_value(current_row['categoria'])}"
+    )
+
     return {
         "provincia": current_row["provincia"],
         "year": int(current_row["year"]),
         "fallecidos": current_value,
         "pred_fallecidos_next": float(current_row["pred_fallecidos_next"]),
         "score_riesgo": float(current_row["score_riesgo"]),
-        "categoria": categoria,
-        "regla_aplicada": str(current_row.get("regla_aplicada", "")).strip(),
-        "justificacion_regla": str(current_row.get("justificacion_regla", "")).strip(),
-        "recomendacion": str(current_row.get("recomendacion", "")).strip(),
+        "categoria": _normalize_category_value(current_row["categoria"]),
         "yoy_abs": yoy_abs,
         "yoy_pct": yoy_pct,
         "explicacion": " | ".join(explanation_parts),
@@ -335,7 +313,7 @@ def render_kpi_summary(
 
         st.plotly_chart(
             kpi_dashboard(filtered_ranking, metric_column),
-            width="stretch",
+            width=FULL_WIDTH,
         )
 
     with summary_right:
@@ -385,11 +363,6 @@ def render_province_drilldown(
 
     st.caption(detail["explicacion"])
 
-    if detail["justificacion_regla"]:
-        st.write(f"**Justificación DSS:** {detail['justificacion_regla']}")
-    if detail["recomendacion"]:
-        st.write(f"**Recomendación DSS:** {detail['recomendacion']}")
-
     fig_hist = px.line(
         province_history,
         x="year",
@@ -398,72 +371,18 @@ def render_province_drilldown(
         title=f"Serie histórica de fallecidos - {detail['provincia']}",
     )
     fig_hist.update_layout(height=360, xaxis_title="Año", yaxis_title="Fallecidos")
-    st.plotly_chart(fig_hist, width="stretch")
+    st.plotly_chart(fig_hist, width=FULL_WIDTH)
 
-    detail_cols = [
-        col
-        for col in [
-            "year",
-            "fallecidos",
-            "pred_fallecidos_next",
-            "score_riesgo",
-            "categoria",
-            "regla_aplicada",
-            "justificacion_regla",
-            "recomendacion",
-        ]
-        if col in province_history.columns
-    ]
-    detail_table = province_history[detail_cols].copy()
-    st.dataframe(safe_dataframe(detail_table), width="stretch")
+    detail_table = province_history[
+        ["year", "fallecidos", "pred_fallecidos_next", "score_riesgo", "categoria"]
+    ].copy()
+    st.dataframe(safe_dataframe(detail_table), width=FULL_WIDTH)
 
 
 def render_ranking_tab(filtered_ranking: pd.DataFrame, top_n: int) -> None:
-    ranking_df = _prepare_category_column(filtered_ranking.copy())
+    ranking_df = _prepare_category_column(filtered_ranking)
 
-    ranking_df["nivel_visual"] = ranking_df["categoria"].map({
-        "Alta prioridad": "🔴 Alta prioridad",
-        "Vigilancia preventiva": "🟡 Vigilancia preventiva",
-        "Seguimiento rutinario": "🟢 Seguimiento rutinario",
-        "N/D": "⚪ N/D",
-    }).fillna("⚪ N/D")
-
-    preferred_cols = [
-        "ranking_posicion",
-        "provincia",
-        "nivel_visual",
-        "categoria",
-        "score_riesgo",
-        "pred_fallecidos_next",
-        "fallecidos_actuales",
-        "delta_abs",
-        "delta_pct",
-        "regla_aplicada",
-        "justificacion_regla",
-        "recomendacion",
-    ]
-    visible_cols = [col for col in preferred_cols if col in ranking_df.columns]
-
-    ranking_table = safe_dataframe(ranking_df[visible_cols])
-
-    def _style_row(row: pd.Series) -> list[str]:
-        categoria = str(row.get("categoria", "N/D")).strip()
-        color_map = {
-            "Alta prioridad": "background-color: rgba(231, 76, 60, 0.16);",
-            "Vigilancia preventiva": "background-color: rgba(243, 156, 18, 0.18);",
-            "Seguimiento rutinario": "background-color: rgba(46, 204, 113, 0.16);",
-            "N/D": "background-color: rgba(189, 195, 199, 0.18);",
-        }
-        style = color_map.get(categoria, color_map["N/D"])
-        return [style] * len(row)
-
-    styled_ranking_table = ranking_table.style.apply(_style_row, axis=1)
-
-    st.dataframe(
-        styled_ranking_table,
-        width="stretch",
-        hide_index=True,
-    )
+    st.dataframe(safe_dataframe(ranking_df), width=FULL_WIDTH)
 
     fig_rank = px.bar(
         ranking_df.head(min(top_n, len(ranking_df))),
@@ -471,27 +390,12 @@ def render_ranking_tab(filtered_ranking: pd.DataFrame, top_n: int) -> None:
         y="score_riesgo",
         color="categoria",
         color_discrete_map=CATEGORY_COLOR_MAP,
-        category_orders={
-            "categoria": [
-                "Seguimiento rutinario",
-                "Vigilancia preventiva",
-                "Alta prioridad",
-            ]
-        },
-        hover_data=[
-            col
-            for col in [
-                "pred_fallecidos_next",
-                "fallecidos_actuales",
-                "delta_pct",
-                "regla_aplicada",
-            ]
-            if col in ranking_df.columns
-        ],
+        category_orders={"categoria": ["Baja", "Media", "Alta"]},
+        hover_data=["pred_fallecidos_next", "fallecidos_actuales", "delta_pct"],
         title="Ranking de provincias priorizadas",
     )
     fig_rank.update_layout(height=500, xaxis_title="", yaxis_title="Score de riesgo")
-    st.plotly_chart(fig_rank, width="stretch")
+    st.plotly_chart(fig_rank, width=FULL_WIDTH)
 
     fig_scatter = px.scatter(
         ranking_df,
@@ -500,22 +404,16 @@ def render_ranking_tab(filtered_ranking: pd.DataFrame, top_n: int) -> None:
         size="score_riesgo",
         color="categoria",
         color_discrete_map=CATEGORY_COLOR_MAP,
-        category_orders={
-            "categoria": [
-                "Seguimiento rutinario",
-                "Vigilancia preventiva",
-                "Alta prioridad",
-            ]
-        },
+        category_orders={"categoria": ["Baja", "Media", "Alta"]},
         hover_name="provincia",
         title="Relación entre fallecidos actuales y predicción siguiente",
     )
     fig_scatter.update_layout(height=500)
-    st.plotly_chart(fig_scatter, width="stretch")
+    st.plotly_chart(fig_scatter, width=FULL_WIDTH)
 
 
 def render_metrics_tab(metricas_df: pd.DataFrame) -> None:
-    st.dataframe(safe_dataframe(metricas_df), width="stretch")
+    st.dataframe(safe_dataframe(metricas_df), width=FULL_WIDTH)
 
     fig_metrics = px.bar(
         metricas_df,
@@ -524,11 +422,11 @@ def render_metrics_tab(metricas_df: pd.DataFrame) -> None:
         title="Métricas de evaluación Top-K",
     )
     fig_metrics.update_layout(height=400, xaxis_title="", yaxis_title="Valor")
-    st.plotly_chart(fig_metrics, width="stretch")
+    st.plotly_chart(fig_metrics, width=FULL_WIDTH)
 
 
 def render_xai_tab(explain_df: pd.DataFrame) -> None:
-    st.dataframe(safe_dataframe(explain_df), width="stretch")
+    st.dataframe(safe_dataframe(explain_df), width=FULL_WIDTH)
 
     fig_imp = px.bar(
         explain_df.head(10),
@@ -537,7 +435,7 @@ def render_xai_tab(explain_df: pd.DataFrame) -> None:
         title="Explicabilidad global del modelo",
     )
     fig_imp.update_layout(height=450, xaxis_title="", yaxis_title="Importancia")
-    st.plotly_chart(fig_imp, width="stretch")
+    st.plotly_chart(fig_imp, width=FULL_WIDTH)
 
 
 def render_narrative_tab(narrative_text: str) -> None:
@@ -559,25 +457,7 @@ def render_export_section(
     version: str,
     selected_year: int,
 ) -> None:
-    ranking_export_df = filtered_ranking.copy()
-
-    preferred_ranking_cols = [
-        "ranking_posicion",
-        "provincia",
-        "categoria",
-        "score_riesgo",
-        "pred_fallecidos_next",
-        "fallecidos_actuales",
-        "delta_abs",
-        "delta_pct",
-        "regla_aplicada",
-        "justificacion_regla",
-        "recomendacion",
-    ]
-    ranking_export_cols = [col for col in preferred_ranking_cols if col in ranking_export_df.columns]
-    ranking_export_df = ranking_export_df[ranking_export_cols].copy()
-
-    csv_bytes = to_csv_bytes(ranking_export_df)
+    csv_bytes = to_csv_bytes(filtered_ranking)
 
     detail_export_df = scored_df.copy()
     if selected_provinces:
@@ -585,27 +465,9 @@ def render_export_section(
             detail_export_df["provincia"].isin(selected_provinces)
         ].copy()
 
-    preferred_detail_cols = [
-        "provincia",
-        "provincia_canonica",
-        "year",
-        "fallecidos",
-        "fallecidos_actuales",
-        "pred_fallecidos_next",
-        "score_riesgo",
-        "categoria",
-        "delta_abs",
-        "delta_pct",
-        "regla_aplicada",
-        "justificacion_regla",
-        "recomendacion",
-    ]
-    detail_export_cols = [col for col in preferred_detail_cols if col in detail_export_df.columns]
-    detail_export_df = detail_export_df[detail_export_cols].copy()
-
     xlsx_bytes = to_excel_bytes(
         {
-            "ranking_filtrado": ranking_export_df,
+            "ranking_filtrado": filtered_ranking,
             "metricas": metricas_df,
             "detalle": detail_export_df,
             "explicabilidad": explain_df,
@@ -617,7 +479,7 @@ def render_export_section(
         data=csv_bytes,
         file_name=f"{project_name}_{version}_ranking_{selected_year}.csv",
         mime="text/csv",
-        width="stretch",
+        width=FULL_WIDTH,
         key="download_ranking_csv",
     )
 
@@ -626,11 +488,6 @@ def render_export_section(
         data=xlsx_bytes,
         file_name=f"{project_name}_{version}_resultados_{selected_year}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        width="stretch",
+        width=FULL_WIDTH,
         key="download_results_excel",
-    )
-
-    st.caption(
-        "La exportación incluye la salida operativa del DSS, incorporando categoría, "
-        "regla aplicada, justificación y recomendación cuando estén disponibles."
     )
