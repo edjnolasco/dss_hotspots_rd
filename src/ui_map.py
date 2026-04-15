@@ -24,29 +24,41 @@ GEO_CANDIDATE_KEYS = [
     "nom_prov",
 ]
 
-# Normalización robusta de categorías
 RISK_CATEGORY_MAP = {
-    "baja": "Baja",
-    "bajo": "Baja",
-    "media": "Media",
-    "medio": "Media",
-    "media alta": "Media-Alta",
-    "media-alta": "Media-Alta",
-    "media_alta": "Media-Alta",
-    "medio alto": "Media-Alta",
-    "medio-alto": "Media-Alta",
-    "alta": "Alta",
-    "alto": "Alta",
+    "alta prioridad": "Alta prioridad",
+    "alta": "Alta prioridad",
+    "alto": "Alta prioridad",
+
+    "vigilancia preventiva": "Vigilancia preventiva",
+    "media": "Vigilancia preventiva",
+    "medio": "Vigilancia preventiva",
+    "media alta": "Vigilancia preventiva",
+    "media-alta": "Vigilancia preventiva",
+    "media_alta": "Vigilancia preventiva",
+    "medio alto": "Vigilancia preventiva",
+    "medio-alto": "Vigilancia preventiva",
+
+    "seguimiento rutinario": "Seguimiento rutinario",
+    "baja": "Seguimiento rutinario",
+    "bajo": "Seguimiento rutinario",
+
+    "n/d": "N/D",
+    "nd": "N/D",
+    "": "N/D",
 }
 
 RISK_COLOR_MAP = {
-    "Baja": "#48c774",
-    "Media": "#d4c61c",
-    "Media-Alta": "#ff8c42",
-    "Alta": "#e74c3c",
+    "Alta prioridad": "#e74c3c",            # 🔴 rojo
+    "Vigilancia preventiva": "#f39c12",     # 🟡 amarillo
+    "Seguimiento rutinario": "#2ecc71",     # 🟢 verde
+    "N/D": "#bdc3c7",                       # ⚪ gris
 }
 
-RISK_CATEGORY_ORDER = ["Baja", "Media", "Media-Alta", "Alta"]
+RISK_CATEGORY_ORDER = [
+    "Seguimiento rutinario",
+    "Vigilancia preventiva",
+    "Alta prioridad",
+]
 
 
 def _safe_str(value: Any) -> str:
@@ -168,50 +180,29 @@ def extract_selected_province_from_click(
 
     point = selected_points[0] or {}
 
-    valid_provinces: set[str] = set()
-    if "provincia" in fallback_df.columns:
-        valid_provinces = set(
-            fallback_df["provincia"].dropna().astype(str).str.strip().tolist()
-        )
+    customdata = point.get("customdata")
 
-    candidate_fields = [
-        point.get("customdata"),
-        point.get("location"),
-        point.get("hovertext"),
-        point.get("text"),
-        point.get("x"),
-        point.get("y"),
-    ]
+    if isinstance(customdata, (list, tuple)):
+        for item in customdata:
+            candidate = _safe_str(item)
+            if candidate:
+                canon = canonical_province(candidate)
+                if canon:
+                    return canon
 
-    for candidate in candidate_fields:
-        if isinstance(candidate, (list, tuple)) and candidate:
-            candidate = candidate[0]
+    elif customdata is not None:
+        candidate = _safe_str(customdata)
+        if candidate:
+            canon = canonical_province(candidate)
+            if canon:
+                return canon
 
-        if candidate is None:
-            continue
-
-        candidate_str = _safe_str(candidate)
-        if not candidate_str:
-            continue
-
-        candidate_canonical = canonical_province(candidate_str)
-
-        if candidate_canonical and (
-            not valid_provinces or candidate_canonical in valid_provinces
-        ):
-            return candidate_canonical
-
-        candidate_normalized = normalize_text(candidate_str)
-        for province in valid_provinces:
-            if normalize_text(province) == candidate_normalized:
-                return province
-
-    point_index = point.get("pointIndex")
-    if isinstance(point_index, int) and not fallback_df.empty:
-        if 0 <= point_index < len(fallback_df):
-            province = fallback_df.iloc[point_index].get("provincia")
-            if province:
-                return str(province).strip()
+    for key in ("location", "text", "hovertext"):
+        candidate = _safe_str(point.get(key))
+        if candidate:
+            canon = canonical_province(candidate)
+            if canon:
+                return canon
 
     return None
 
@@ -263,7 +254,7 @@ def _prepare_map_dataframe(
     )
 
     matched_df = df[df["geo_match_name"].notna()].copy()
-    matched_df = matched_df.sort_values(["provincia"]).reset_index(drop=True)
+    matched_df = matched_df.drop_duplicates(subset=["provincia"]).reset_index(drop=True)
 
     return matched_df, unmatched
 
@@ -277,8 +268,19 @@ def _build_hover_template_numeric(color_col: str) -> str:
 
 
 def _normalize_risk_category(value: Any) -> str:
-    text = normalize_text(value)
-    return RISK_CATEGORY_MAP.get(text, _safe_str(value))
+    raw = _safe_str(value)
+    if not raw:
+        return "N/D"
+
+    text = normalize_text(raw)
+    if text in RISK_CATEGORY_MAP:
+        return RISK_CATEGORY_MAP[text]
+
+    # Si ya viene en formato DSS correcto, conservarlo.
+    if raw in {"Alta prioridad", "Vigilancia preventiva", "Seguimiento rutinario", "N/D"}:
+        return raw
+
+    return raw
 
 
 def _build_base_geo_layer(
@@ -286,7 +288,7 @@ def _build_base_geo_layer(
     featureidkey: str,
 ) -> go.Choropleth:
     features = geo_source.get("features", []) or []
-    all_locations = []
+    all_locations: list[str] = []
 
     for feature in features:
         raw_name = _extract_feature_name(feature)
@@ -303,7 +305,7 @@ def _build_base_geo_layer(
         marker_line_color="white",
         marker_line_width=0.7,
         hoverinfo="skip",
-        name="Sin datos",
+        name="Base",
     )
 
 
@@ -313,7 +315,19 @@ def _build_categorical_trace(
     featureidkey: str,
     category_name: str,
 ) -> go.Choropleth:
-    color = RISK_COLOR_MAP[category_name]
+
+    color = RISK_COLOR_MAP.get(category_name, RISK_COLOR_MAP["N/D"])
+
+    # 🔧 FIX: indentación correcta
+    subset = subset.copy()
+    subset["provincia_click"] = subset["provincia"].astype(str).str.strip()
+
+    hovertemplate = (
+        "<b>%{customdata[0]}</b><br>"
+        f"categoría: {category_name}"
+        "<extra></extra>"
+    )
+
     return go.Choropleth(
         geojson=geo_source,
         locations=subset["geo_match_name"].tolist(),
@@ -323,8 +337,8 @@ def _build_categorical_trace(
         showscale=False,
         marker_line_color="white",
         marker_line_width=0.7,
-        customdata=subset[["provincia", "categoria_normalizada"]].values,
-        hovertemplate="<b>%{customdata[0]}</b><br>categoria: %{customdata[1]}<extra></extra>",
+        customdata=subset["provincia_click"].tolist(),  # 🔧 clave
+        hovertemplate=hovertemplate,
         name=category_name,
     )
 
@@ -374,6 +388,7 @@ def build_map_cached(
 
     plot_df = matched_df.copy()
     plot_df["is_selected"] = False
+
     if selected_province:
         selected_canonical = canonical_province(selected_province)
         plot_df["is_selected"] = (
@@ -389,12 +404,28 @@ def build_map_cached(
             subset = plot_df[plot_df["categoria_normalizada"] == category_name].copy()
             if subset.empty:
                 continue
+
             figure.add_trace(
                 _build_categorical_trace(
                     subset=subset,
                     geo_source=geo_source,
                     featureidkey=featureidkey,
                     category_name=category_name,
+                )
+            )
+
+        nd_subset = plot_df[
+            ~plot_df["categoria_normalizada"].isin(RISK_CATEGORY_ORDER)
+        ].copy()
+
+        if not nd_subset.empty:
+            nd_subset["categoria_normalizada"] = "N/D"
+            figure.add_trace(
+                _build_categorical_trace(
+                    subset=nd_subset,
+                    geo_source=geo_source,
+                    featureidkey=featureidkey,
+                    category_name="N/D",
                 )
             )
     else:
@@ -445,11 +476,12 @@ def build_map_cached(
     )
 
     layout_kwargs = dict(
+        title=title,
         margin=dict(l=0, r=0, t=60, b=0),
         height=620,
         clickmode="event+select",
         legend=dict(
-            title="Nivel de riesgo",
+            title="Nivel de riesgo DSS",
             orientation="v",
         ),
     )

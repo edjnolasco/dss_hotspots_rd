@@ -7,6 +7,8 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 
+from src.rules import apply_rules
+
 
 def run_pipeline(df: pd.DataFrame) -> dict[str, Any]:
     required_cols = {
@@ -168,6 +170,9 @@ def _fit_and_score(
     scored_df["pred_fallecidos_next"] = model.predict(scored_df[usable_feature_cols])
     scored_df = _decorate_scored_df(scored_df)
 
+    # DSS real: las categorías se asignan con reglas explícitas
+    scored_df = apply_rules(scored_df)
+
     explain_df = pd.DataFrame(
         {
             "feature": usable_feature_cols,
@@ -194,6 +199,10 @@ def _build_fallback_scored_df(grouped: pd.DataFrame) -> pd.DataFrame:
     )
 
     scored_df = _decorate_scored_df(df)
+
+    # DSS real: las categorías se asignan con reglas explícitas
+    scored_df = apply_rules(scored_df)
+
     return scored_df
 
 
@@ -212,9 +221,7 @@ def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
         .fillna(0.0)
     )
 
-    df["categoria"] = df["score_riesgo"].apply(_risk_category)
-
-    # Compatibilidad con la app
+    # Compatibilidad con la app y con el motor de reglas
     df["fallecidos_actuales"] = df["fallecidos"]
     df["delta_abs"] = df["pred_fallecidos_next"] - df["fallecidos_actuales"]
     df["delta_pct"] = np.where(
@@ -232,7 +239,6 @@ def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
             "fallecidos_actuales",
             "pred_fallecidos_next",
             "score_riesgo",
-            "categoria",
             "delta_abs",
             "delta_pct",
         ]
@@ -416,6 +422,8 @@ def _build_narrative_text(
         f"{', '.join(top3)}. "
         f"El desempeño global del modelo reporta un MAE de {mae_text} y un R² de {r2_text}. "
         f"En términos de priorización Top-K, el HitRate@3 es {hit3_text} y el HitRate@5 es {hit5_text}. "
+        f"La categorización final del DSS no se asigna directamente desde el modelo, "
+        f"sino mediante reglas explícitas aplicadas sobre el score de riesgo y la variación reciente. "
         f"Esta salida se construye agrupando por provincia canónica para evitar duplicidades "
         f"nominales, pero conservando el nombre visible de provincia para la capa de visualización."
     )
@@ -461,13 +469,3 @@ def _minmax_scale(series: pd.Series) -> pd.Series:
         return pd.Series(np.ones(len(series)) * 0.5, index=series.index)
 
     return (s - s_min) / (s_max - s_min)
-
-
-def _risk_category(score: float) -> str:
-    if score >= 0.75:
-        return "Alta"
-    if score >= 0.50:
-        return "Media-Alta"
-    if score >= 0.25:
-        return "Media"
-    return "Baja"
