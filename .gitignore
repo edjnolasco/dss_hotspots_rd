@@ -135,6 +135,7 @@ data/exports/
 # Uncomment if you do NOT want to version large geojsons
 # -----------------------------
 # data/*.geojson
+data/distrito_municipal_rd.json
 
 # -----------------------------
 # Optional notebook exports
@@ -147,3 +148,4 @@ data/exports/
 # If releases will be managed through GitHub Releases, ignore ZIPs
 # -----------------------------
 releases/*.zip
+data/distrito_municipal_rd.json
