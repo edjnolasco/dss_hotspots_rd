@@ -1,0 +1,5908 @@
+diff --git a/.gitignore b/.gitignore
+index 8017fe3..38f5d36 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -135,6 +135,7 @@ data/exports/
+ # Uncomment if you do NOT want to version large geojsons
+ # -----------------------------
+ # data/*.geojson
++data/distrito_municipal_rd.json
+ 
+ # -----------------------------
+ # Optional notebook exports
+@@ -147,3 +148,5 @@ data/exports/
+ # If releases will be managed through GitHub Releases, ignore ZIPs
+ # -----------------------------
+ releases/*.zip
++data/distrito_municipal_rd.json
++data/distrito_municipal_rd.json
+diff --git a/README.md b/README.md
+index d114bb1..3082542 100644
+--- a/README.md
++++ b/README.md
+@@ -1,38 +1,34 @@
+-# 🚦 DSS_Hotspots_RD
++# DSS_Hotspots_RD
+ 
+ ![CI](https://github.com/edjnolasco/dss_hotspots_rd/actions/workflows/ci.yml/badge.svg)
+-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+-![Status](https://img.shields.io/badge/status-stable-success)
+ 
+-📊 Sistema de Soporte a la Decisión (DSS) para la predicción y priorización de hotspots de accidentes de tránsito en la República Dominicana.
++Sistema de Soporte a la Decisión (DSS) para la predicción y priorización de hotspots de accidentes de tránsito en la República Dominicana.
+ 
+----
+-
+-## 👤 Autor
+-**Edwin José Nolasco**
++## Autor
++Edwin José Nolasco
+ 
+ ---
+ 
+-## 📌 Descripción
++## Descripción
+ 
+ Este proyecto implementa un DSS híbrido orientado a la toma de decisiones en seguridad vial, integrando:
+ 
+-- 🤖 Modelos predictivos basados en Machine Learning  
+-- 📏 Reglas de negocio para clasificación de riesgo  
+-- 📊 Visualización interactiva mediante dashboard  
++- Modelos predictivos basados en Machine Learning
++- Reglas de negocio para clasificación de riesgo
++- Visualización interactiva mediante dashboard
+ 
+ El sistema permite identificar provincias con mayor probabilidad de incremento en fallecimientos, facilitando la priorización de intervenciones.
+ 
+ ---
+ 
+-## 🌐 Demo
++## Demo
+ 
+ 👉 *(Opcional — agrega aquí cuando lo despliegues)*  
+ - Streamlit Cloud: https://tu-app.streamlit.app  
+ 
+ ---
+ 
+-## 🖥️ Dashboard (Vista del sistema)
++## Dashboard (Vista del sistema)
+ 
+ ![Dashboard DSS](docs/dashboard.png)
+ 
+@@ -40,264 +36,41 @@ El sistema permite identificar provincias con mayor probabilidad de incremento e
+ 
+ ---
+ 
+-## 🧠 Arquitectura (Modelo C4)
+-
+-### 🔹 Nivel 1 — Sistema
+-DSS de predicción de hotspots de accidentes en RD.
+-
+-### 🔹 Nivel 2 — Contenedores
+-- 🖥️ **Frontend**: Streamlit  
+-- ⚙️ **Motor DSS**: Pipeline + modelo + reglas  
+-
+-### 🔹 Nivel 3 — Componentes
+-- 📥 Ingesta y normalización de datos  
+-- 🧮 Ingeniería de características  
+-- 🌲 Modelo predictivo (Random Forest)  
+-- 📐 Capa de reglas DSS  
+-- 📊 Métricas Top-K (HitRate@K, nDCG@K)  
+-
+----
+-
+-## ⚙️ Arquitectura funcional DSS
+-
+-Flujo lógico del sistema:
+-
+-DATA → PIPELINE → MODELO → REGLAS → RANKING → VISUALIZACIÓN
++## Arquitectura
+ 
++El sistema sigue el modelo C4:
+ 
++### Nivel 1 — Sistema
++DSS de predicción de hotspots de accidentes en RD.
+ 
+-### 🔧 Componentes clave
+-
+-**1. 📂 Data Layer**
+-- Normalización robusta del dataset  
+-- Estandarización de columnas (`provincia`, `year`, `fecha`, etc.)  
+-
+-**2. 🧠 Pipeline (`src/pipeline.py`)**
+-- Feature engineering temporal:
+-  - ⏳ lags  
+-  - 📉 rolling means  
+-  - 🔄 deltas  
+-- Modelo:
+-  - 🌲 RandomForestRegressor  
+-
+-**3. 📏 Reglas DSS**
+-
+-| Score | Categoría |
+-|------|--------|
+-| ≥ 0.75 | 🔴 Alta |
+-| ≥ 0.50 | 🟠 Media-Alta |
+-| ≥ 0.25 | 🟡 Media |
+-| < 0.25 | 🟢 Baja |
+-
+----
+-
+-**4. 🎯 Capa de decisión**
+-- Ranking por riesgo  
+-- Selección Top-N dinámica  
+-
+-**5. 🗺️ UI**
+-- Mapa interactivo  
+-- Drill-down por provincia  
+-- Filtros múltiples  
+-
+----
+-
+-## 📊 Métricas Top-K (Evaluación del DSS)
+-
+-El problema se modela como **priorización (ranking)**, no solo predicción.
+-
+-### 📌 Definiciones
+-
+-- Ranking predicho → `score_riesgo`  
+-- Ranking real → `fallecidos_actuales`  
+-
+----
+-
+-### 🔍 Métricas implementadas
+-
+-#### 🔹 HitRate@K
+-Proporción de provincias relevantes capturadas por el modelo:
+-
+-HitRate@K = |TopK_real ∩ TopK_predicho| / |TopK_real|
+-
+-
+----
+-
+-#### 🔹 Top-K Accuracy
+-Equivalente a HitRate en este contexto.
+-
+----
+-
+-#### 🔹 Precision@K
+-Calidad del Top-K predicho:
+-
+-Precision@K = |TopK_real ∩ TopK_predicho| / |TopK_predicho|
+-
+-
+----
+-
+-### 🎯 Interpretación
++### Nivel 2 — Contenedores
++- **Frontend**: Streamlit
++- **Motor DSS**: Pipeline + modelo + reglas
+ 
+-- 📈 HitRate alto → el DSS identifica correctamente zonas críticas  
+-- 🎯 Precision alta → ranking confiable  
+-- ⚠️ Más relevante que MAE en este contexto  
++### Nivel 3 — Componentes
++- Ingesta y normalización de datos
++- Ingeniería de características
++- Modelo predictivo (Random Forest)
++- Capa de reglas DSS
++- Métricas Top-K (HitRate@K, nDCG@K)
+ 
+ ---
+ 
+-## 🧰 Tecnologías
++## Tecnologías
+ 
+-- 🐍 Pandas  
+-- 🔢 NumPy  
+-- 🤖 Scikit-learn  
+-- 📊 Streamlit  
+-- 🔍 SHAP (opcional)  
++- Pandas
++- NumPy
++- Scikit-learn
++- SHAP (opcional)
++- Streamlit
+ 
+ ---
+ 
+-## 🚀 Ejecución
++## Dataset
+ 
+-### 1. Clonar
++Fuente:
++- Datos abiertos de accidentes de tránsito en República Dominicana
+ 
++Archivo incluido:
+ ```bash
+-git clone https://github.com/edjnolasco/dss_hotspots_rd.git
+-cd dss_hotspots_rd
+-```
+-
+-2. Entorno
+-
+-```bash
+-
+-python -m venv .venv
+-source .venv/bin/activate  # Linux / Mac
+-.venv\Scripts\activate     # Windows
+-
+-```
+-
+-3. Dependencias
+-
+-```bash
+-pip install -r requirements.txt
+-```
+-
+-4. Ejecutar
+-
+-```
+-streamlit run app/app.py
+-
+-```
+-🗂️ Estructura del proyecto
+-
+-```text
+-dss_hotspots_rd/
+-│
+-├── app/
+-│   └── app.py
+-│
+-├── src/
+-│   ├── pipeline.py
+-│   ├── ui_map.py
+-│   ├── ui_sections.py
+-│   ├── data_sources.py
+-│   ├── province_utils.py
+-│   └── ...
+-│
+-├── data/
+-├── docs/
+-├── tests/
+-├── requirements.txt
+-└── README.md
+-
+-```
+-
+-🔁 CI (Integración continua)
+-
+-✔ Validación de compilación
+-✔ Validación del pipeline
+-✔ Control de errores críticos
+-
+-📈 Estado del proyecto
+-
+-🟢 Versión estable
+-✔ Pipeline validado
+-✔ UI interactiva funcional
+-✔ Métricas DSS implementadas
+-
+-🔮 Líneas futuras
+-🤖 Integración con SVM (kernels + regularización)
+-🔍 SHAP avanzado
+-📊 Evaluación multi-año
+-🌐 Datos en tiempo real
+-
+-⚠️ Nota
+-
+-Este sistema está diseñado como DSS experimental/académico.
+-Debe utilizarse como apoyo a la decisión, no como predicción determinista.
+-
+-🇺🇸 English
+-📊 Description
+-
+-Decision Support System (DSS) for predicting and prioritizing traffic accident hotspots in the Dominican Republic.
+-
+-This project integrates:
+-
+-🤖 Machine Learning models
+-📏 Business rules
+-🗺️ Interactive visualization
+-
+-The goal is to identify high-risk provinces to support road safety decision-making.
+-
+-🧠 DSS Architecture
+-
+-DATA → PIPELINE → MODEL → RULES → RANKING → VISUALIZATION
+-
+-Components:
+-📂 Data Layer: Robust normalization (province, year, date, etc.)
+-🧠 Pipeline: Feature engineering + Random Forest
+-📏 Rules Layer: Risk classification
+-🎯 Ranking Layer: Top-N prioritization
+-🖥️ UI Layer: Streamlit + interactive map
+-
+-📊 Metrics (Top-K Evaluation)
+-
+-The problem is treated as a ranking task, not just regression.
+-
+-🔹 HitRate@K → coverage of critical regions
+-🔹 Precision@K → ranking quality
+-🔹 Top-K Accuracy → DSS performance
+-
+-🚀 Run
+-
+-```bash
+-
+-git clone https://github.com/edjnolasco/dss_hotspots_rd.git
+-cd dss_hotspots_rd
+-python -m venv .venv
+-source .venv/bin/activate
+-pip install -r requirements.txt
+-streamlit run app/app.py
+-
+-```
+-
+-🗂️ Structure
+-
+-app/        → UI
+-src/        → DSS logic
+-data/       → dataset
+-docs/       → resources
+-tests/      → validations
+-
+-📈 Status
+-
+-🟢 Stable
+-✔ Validated pipeline
+-✔ Functional UI
+-✔ Top-K metrics implemented
+-
+-👤 Author
+-
+-Edwin José Nolasco
+-
+-⚠️ Disclaimer
+-
+-This system is designed as an experimental/academic DSS.
+-Results should be interpreted as decision support, not deterministic predictions.
++data/fallecimientos_provincias.csv
+diff --git a/app/app.py b/app/app.py
+index 1870a67..cafd4c6 100644
+--- a/app/app.py
++++ b/app/app.py
+@@ -6,7 +6,6 @@ from typing import Any
+ 
+ import pandas as pd
+ import streamlit as st
+-from streamlit_plotly_events import plotly_events
+ 
+ APP_DIR = Path(__file__).resolve().parent
+ ROOT = APP_DIR if (APP_DIR / "src").exists() else APP_DIR.parent
+@@ -21,29 +20,36 @@ from src.data_sources import (  # noqa: E402
+     normalize_official_provinces,
+     read_dataframe_from_bytes,
+ )
++from src.debug_tools import (  # noqa: E402
++    build_pipeline_debug_info,
++    configure_logger,
++    debug_flag,
++    measure_runtime,
++    render_dataframe_previews,
++    render_debug_sidebar,
++    render_pipeline_metrics,
++    render_session_state_debug,
++    render_trace_table,
++    sync_debug_state,
++)
++from src.glossary import GLOSARIO_DSS  # noqa: E402
+ from src.pipeline import run_pipeline  # noqa: E402
+ from src.state import ensure_session_state, reset_selection_state  # noqa: E402
+-from src.ui_map import (  # noqa: E402
+-    build_geo_quality_summary,
+-    build_map_cached,
+-    extract_selected_province_from_click,
+-    load_geojson_source,
+-    should_accept_map_click,
+-)
++from src.ui_about import render_about_section  # noqa: E402
++from src.ui_help import render_help_section  # noqa: E402
+ from src.ui_sections import (  # noqa: E402
+     apply_interactive_filters,
+     build_year_ranking,
+     render_export_section,
+-    render_kpi_summary,
+     render_metrics_tab,
+     render_narrative_tab,
+-    render_province_drilldown,
+     render_ranking_tab,
+     render_xai_tab,
+ )
+ from src.version import AUTHOR, PROJECT_NAME, VERSION  # noqa: E402
+-
+-FULL_WIDTH = "stretch"
++from src.ui_overview import render_overview_section  # noqa: E402
++from src.ui_ranking_section import render_ranking_section  # noqa: E402
++from src.ui_map_section import render_map_section  # noqa: E402
+ 
+ SECTION_OPTIONS = [
+     "Ranking",
+@@ -52,6 +58,8 @@ SECTION_OPTIONS = [
+     "Explicabilidad",
+     "Narrativa",
+     "Exportación",
++    "Ayuda e interpretación",
++    "Acerca de",
+ ]
+ 
+ SOURCE_OPTIONS = [
+@@ -74,33 +82,79 @@ METRIC_OPTIONS = [
+     "delta_pct",
+ ]
+ 
++ANALYTIC_SECTIONS = {
++    "Ranking",
++    "Mapa y drill-down",
++    "Métricas",
++    "Explicabilidad",
++    "Narrativa",
++    "Exportación",
++}
++
++SECTION_HEADERS = {
++    "Ranking": (
++        "Ranking priorizado",
++        "Consulta la salida ordenada del DSS y su lectura operativa.",
++    ),
++    "Mapa y drill-down": (
++        "Exploración geoespacial",
++        "Analiza la distribución territorial y profundiza en una provincia.",
++    ),
++    "Métricas": (
++        "Métricas de evaluación",
++        "Examina el desempeño del modelo y la calidad de la priorización Top-K.",
++    ),
++    "Explicabilidad": (
++        "Explicabilidad del modelo",
++        "Identifica las variables con mayor peso en la generación del score.",
++    ),
++    "Narrativa": (
++        "Narrativa automática",
++        "Revisa la síntesis textual generada a partir de la salida del sistema.",
++    ),
++    "Exportación": (
++        "Exportación de resultados",
++        "Descarga la salida operativa del DSS en formatos reutilizables.",
++    ),
++    "Ayuda e interpretación": (
++        "Ayuda e interpretación",
++        "Consulta definiciones, glosario y claves de lectura del dashboard.",
++    ),
++    "Acerca de": (
++        "Acerca del proyecto",
++        "Información institucional, técnica y metodológica del sistema.",
++    ),
++}
++
++LOGGER = configure_logger()
++
+ 
+ def request_section(section_name: str) -> None:
+-    st.session_state["active_section"] = section_name
+-    st.session_state["force_section"] = section_name
++    if section_name in SECTION_OPTIONS:
++        st.session_state["active_section"] = section_name
+ 
+ 
+ def ensure_app_state() -> None:
+     ensure_session_state()
++    sync_debug_state()
+ 
+     defaults: dict[str, Any] = {
+         "analysis_results": None,
+         "source_label": None,
+         "active_section": "Mapa y drill-down",
+-        "active_section_widget": "Mapa y drill-down",
+-        "force_section": None,
+         "selected_province": None,
+-        "selected_province_widget": None,
+         "selected_years": [],
+         "selected_provinces_filter": [],
+         "include_all_years": True,
+         "include_all_provinces": True,
+-        "debug_map_click": False,
+         "metric_column": "categoria",
+         "source_mode": "Ruta local",
+         "geo_mode": "Ruta local",
+         "local_path": str(ROOT / "data" / "fallecimientos_provincias.csv"),
+         "geo_local_path": str(ROOT / "data" / "rd_provinces.geojson"),
++        "show_dss_trace": True,
++        "show_top_only": False,
++        "top_n": None,
+     }
+ 
+     for key, value in defaults.items():
+@@ -116,6 +170,9 @@ def ensure_app_state() -> None:
+     if st.session_state["geo_mode"] not in GEO_OPTIONS:
+         st.session_state["geo_mode"] = "Ruta local"
+ 
++    if st.session_state["active_section"] not in SECTION_OPTIONS:
++        st.session_state["active_section"] = "Mapa y drill-down"
++
+ 
+ def set_selected_province(new_value: str | None) -> bool:
+     old_value = st.session_state.get("selected_province")
+@@ -123,22 +180,18 @@ def set_selected_province(new_value: str | None) -> bool:
+         return False
+ 
+     st.session_state["selected_province"] = new_value
+-    st.session_state["selected_province_widget"] = new_value
++    st.session_state["province_focus_selectbox"] = new_value
+     return True
+ 
+ 
+ def sync_focus_province(valid_options: list[str]) -> None:
+     if not valid_options:
+         st.session_state["selected_province"] = None
+-        st.session_state["selected_province_widget"] = None
+         return
+ 
+     current = st.session_state.get("selected_province")
+     if current not in valid_options:
+-        current = valid_options[0]
+-        st.session_state["selected_province"] = current
+-
+-    st.session_state["selected_province_widget"] = current
++        st.session_state["selected_province"] = valid_options[0]
+ 
+ 
+ def coerce_top_n(num_items: int, current_value: int | None) -> int:
+@@ -147,10 +200,57 @@ def coerce_top_n(num_items: int, current_value: int | None) -> int:
+     if num_items <= 3:
+         return num_items
+     if current_value is None:
+-        return min(10, num_items)
++        return min(9, num_items)
+     return min(max(current_value, 3), num_items)
+ 
+ 
++def build_rule_trace_text(row: pd.Series) -> str:
++    regla = str(row.get("regla_aplicada", "")).strip()
++    justificacion = str(row.get("justificacion_regla", "")).strip()
++
++    if regla and justificacion:
++        return f"{regla}. {justificacion}"
++
++    if justificacion:
++        return justificacion
++
++    if regla:
++        return regla
++
++    categoria = str(row.get("categoria", "")).strip()
++    score = float(pd.to_numeric(row.get("score_riesgo", 0.0), errors="coerce"))
++    delta_abs = float(pd.to_numeric(row.get("delta_abs", 0.0), errors="coerce"))
++
++    return (
++        "No se encontró trazabilidad textual completa en la salida de reglas. "
++        f"Resumen mínimo disponible: categoría={categoria}, score={score:.3f}, "
++        f"delta_abs={delta_abs:.2f}."
++    )
++
++
++def build_recommendation_text(row: pd.Series) -> str:
++    recomendacion = str(row.get("recomendacion", "")).strip()
++    if recomendacion:
++        return recomendacion
++
++    provincia = str(row.get("provincia", "")).strip()
++    categoria = str(row.get("categoria", "")).strip()
++
++    if categoria == "Alta prioridad":
++        return (
++            f"Priorizar intervención inmediata en {provincia}, con seguimiento intensivo "
++            "y asignación preferente de recursos preventivos."
++        )
++
++    if categoria == "Vigilancia preventiva":
++        return (
++            f"Mantener vigilancia preventiva en {provincia}, monitorear la tendencia "
++            "y preparar escalamiento si persiste el deterioro."
++        )
++
++    return f"Mantener seguimiento rutinario en {provincia} y reevaluar en el próximo ciclo."
++
++
+ st.set_page_config(page_title=f"{PROJECT_NAME} {VERSION}", layout="wide")
+ st.title(f"{PROJECT_NAME} {VERSION}")
+ st.caption(f"Autor: {AUTHOR}")
+@@ -178,9 +278,6 @@ def process_uploaded_data(file_name: str, file_bytes: bytes) -> pd.DataFrame:
+     raw = read_dataframe_from_bytes(file_bytes, filename_hint=file_name)
+     return normalize_official_provinces(raw)
+ 
+-@st.cache_data(show_spinner=False)
+-def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
+-    return run_pipeline(df)
+ 
+ @st.cache_data(show_spinner=False)
+ def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
+@@ -188,70 +285,126 @@ def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
+ 
+ 
+ with st.sidebar:
+-    st.header("Fuente de datos")
+-    source_mode = st.radio(
+-        "Selecciona la fuente",
+-        SOURCE_OPTIONS,
+-        key="source_mode",
+-    )
++    st.markdown("### Panel de control")
+ 
+-    local_path = (
+-        st.text_input(
+-            "Ruta local del dataset",
+-            key="local_path",
++    with st.container(border=True):
++        is_help_active = (
++            st.session_state.get("active_section") == "Ayuda e interpretación"
++        )
++        is_about_active = st.session_state.get("active_section") == "Acerca de"
++
++        shortcut_col1, shortcut_col2 = st.columns(2)
++
++        with shortcut_col1:
++            if is_help_active:
++                st.button(
++                    "Ayuda",
++                    width="stretch",
++                    key="open_help_section_button_active",
++                    disabled=True,
++                    type="primary",
++                )
++            else:
++                if st.button(
++                    "Ayuda",
++                    width="stretch",
++                    key="open_help_section_button",
++                ):
++                    request_section("Ayuda e interpretación")
++                    st.rerun()
++
++        with shortcut_col2:
++            if is_about_active:
++                st.button(
++                    "Acerca de",
++                    width="stretch",
++                    key="open_about_section_button_active",
++                    disabled=True,
++                    type="primary",
++                )
++            else:
++                if st.button(
++                    "Acerca de",
++                    width="stretch",
++                    key="open_about_section_button",
++                ):
++                    request_section("Acerca de")
++                    st.rerun()
++
++    with st.container(border=True):
++        st.markdown("**Datos**")
++
++        source_mode = st.radio(
++            "Fuente de datos",
++            SOURCE_OPTIONS,
++            key="source_mode",
++            label_visibility="collapsed",
+         )
+-        if source_mode == "Ruta local"
+-        else st.session_state.get("local_path", "")
+-    )
+ 
+-    uploaded_file = (
+-        st.file_uploader(
+-            "Sube el dataset",
+-            type=["csv", "xlsx", "xls"],
+-            key="uploaded_dataset",
++        local_path = (
++            st.text_input(
++                "Ruta local del dataset",
++                key="local_path",
++            )
++            if source_mode == "Ruta local"
++            else st.session_state.get("local_path", "")
+         )
+-        if source_mode == "Subir CSV/XLSX"
+-        else None
+-    )
+ 
+-    st.header("GeoJSON")
+-    geo_mode = st.radio(
+-        "Selecciona la fuente del mapa",
+-        GEO_OPTIONS,
+-        key="geo_mode",
+-    )
++        uploaded_file = (
++            st.file_uploader(
++                "Sube el dataset",
++                type=["csv", "xlsx", "xls"],
++                key="uploaded_dataset",
++            )
++            if source_mode == "Subir CSV/XLSX"
++            else None
++        )
+ 
+-    geo_local_path = (
+-        st.text_input(
+-            "Ruta local del GeoJSON",
+-            key="geo_local_path",
++    with st.container(border=True):
++        st.markdown("**Mapa**")
++
++        geo_mode = st.radio(
++            "Fuente del mapa",
++            GEO_OPTIONS,
++            key="geo_mode",
++            label_visibility="collapsed",
+         )
+-        if geo_mode == "Ruta local"
+-        else st.session_state.get("geo_local_path", "")
+-    )
+ 
+-    uploaded_geo = (
+-        st.file_uploader(
+-            "Sube el GeoJSON",
+-            type=["geojson", "json"],
+-            key="uploaded_geojson",
++        geo_local_path = (
++            st.text_input(
++                "Ruta local del GeoJSON",
++                key="geo_local_path",
++            )
++            if geo_mode == "Ruta local"
++            else st.session_state.get("geo_local_path", "")
+         )
+-        if geo_mode == "Subir GeoJSON"
+-        else None
+-    )
+ 
+-    st.header("Diagnóstico")
+-    debug_map_click = st.checkbox(
+-        "Modo debug de clic del mapa",
+-        key="debug_map_click",
+-    )
++        uploaded_geo = (
++            st.file_uploader(
++                "Sube el GeoJSON",
++                type=["geojson", "json"],
++                key="uploaded_geojson",
++            )
++            if geo_mode == "Subir GeoJSON"
++            else None
++        )
+ 
+-    run_clicked = st.button(
+-        "Ejecutar análisis",
+-        type="primary",
+-        width=FULL_WIDTH,
+-        key="run_analysis_button",
+-    )
++    render_debug_sidebar()
++
++    with st.container(border=True):
++        st.markdown("**Ejecución**")
++
++        st.checkbox(
++            "Mostrar trazabilidad DSS",
++            key="show_dss_trace",
++        )
++
++        run_clicked = st.button(
++            "Ejecutar análisis",
++            type="primary",
++            width="stretch",
++            key="run_analysis_button",
++        )
+ 
+ if run_clicked:
+     try:
+@@ -280,19 +433,32 @@ if run_clicked:
+ 
+         else:
+             normalized_df = load_data_local(local_path)
+-            source_label = f"Ruta local: {local_path}"
++            source_label = "Dataset local"
++
++        with measure_runtime("pipeline", LOGGER) as runtime_info:
++            pipeline_results = process_pipeline(normalized_df)
++
++        pipeline_results["_debug"] = build_pipeline_debug_info(
++            input_df=normalized_df,
++            runtime_sec=runtime_info.elapsed,
++            extra={
++                "source_mode": source_mode,
++                "geo_mode": geo_mode,
++            },
++        )
+ 
+-        st.session_state["analysis_results"] = process_pipeline(normalized_df)
++        st.session_state["analysis_results"] = pipeline_results
+         st.session_state["source_label"] = source_label
+ 
+         reset_selection_state()
+         st.session_state["selected_province"] = None
+-        st.session_state["selected_province_widget"] = None
+         st.session_state["selected_years"] = []
+         st.session_state["selected_provinces_filter"] = []
+         st.session_state["include_all_years"] = True
+         st.session_state["include_all_provinces"] = True
+         st.session_state["metric_column"] = "categoria"
++        st.session_state["show_top_only"] = False
++        st.session_state["top_n"] = None
+ 
+         request_section("Mapa y drill-down")
+         st.success("Análisis ejecutado correctamente.")
+@@ -304,365 +470,285 @@ if run_clicked:
+ 
+ results = st.session_state.get("analysis_results")
+ 
++current_section = st.session_state.get("active_section", "Mapa y drill-down")
++if current_section not in SECTION_OPTIONS:
++    current_section = "Mapa y drill-down"
++    st.session_state["active_section"] = current_section
++
++with st.container(border=True):
++    st.markdown("**Navegación**")
++    active_section = st.radio(
++        "Sección",
++        options=SECTION_OPTIONS,
++        horizontal=True,
++        key="active_section",
++        label_visibility="collapsed",
++    )
++
+ if not results:
++    if active_section == "Ayuda e interpretación":
++        header_title, header_caption = SECTION_HEADERS[active_section]
++        st.markdown(f"## {header_title}")
++        st.caption(header_caption)
++        render_help_section(GLOSARIO_DSS)
++        st.stop()
++
++    if active_section == "Acerca de":
++        header_title, header_caption = SECTION_HEADERS[active_section]
++        st.markdown(f"## {header_title}")
++        st.caption(header_caption)
++        render_about_section()
++        st.stop()
++
+     st.info("Configura la fuente de datos y ejecuta el análisis.")
++    st.caption(
++        "Las secciones de ayuda y de información general están disponibles sin ejecutar el análisis."
++    )
++
+     st.markdown("### Fuente oficial prevista")
+     st.code(OFFICIAL_PROVINCES_URL)
++
+     st.markdown("### Nota sobre DIGESETT")
+     st.write(
+         "Si la descarga remota falla con HTTP 403, usa la opción 'Subir CSV/XLSX' "
+         "con el archivo oficial descargado manualmente."
+     )
++
+     st.markdown("### GeoJSON esperado")
+     st.code(str(ROOT / "data" / "rd_provinces.geojson"))
+     st.stop()
+ 
+-st.write(st.session_state.get("source_label", "Fuente no especificada"))
++render_pipeline_metrics(results.get("_debug", {}))
++render_session_state_debug()
++
++if debug_flag("debug_show_state"):
++    st.write(st.session_state.get("source_label"))
++else:
++    st.caption(f"Fuente: {source_mode}")
+ 
+ scored_df = results["scored_df"].copy()
+ metricas_df = results["metricas_df"].copy()
+ explain_df = results["explain_df"].copy()
+ 
++render_dataframe_previews(
++    {
++        "scored_df": scored_df,
++        "metricas_df": metricas_df,
++        "explain_df": explain_df,
++    }
++)
++
++header_title, header_caption = SECTION_HEADERS.get(
++    active_section,
++    ("Sección", "Contenido disponible."),
++)
++
++st.markdown(f"## {header_title}")
++st.caption(header_caption)
++
+ all_years = sorted(scored_df["year"].dropna().astype(int).unique().tolist())
+ default_year = int(results.get("latest_year", all_years[-1]))
+ 
+-st.markdown("## Exploración interactiva")
++selected_years: list[int] = []
++selected_provinces: list[str] = []
++metric_column = st.session_state.get("metric_column", "categoria")
++top_n = st.session_state.get("top_n", 0) or 0
++show_top_only = st.session_state.get("show_top_only", False)
++filtered_ranking = pd.DataFrame()
++province_options: list[str] = []
++selected_year_label = ""
+ 
+-fcol1, fcol2, fcol3, fcol4 = st.columns([1.2, 1.6, 1.0, 1.0])
++if active_section in ANALYTIC_SECTIONS:
++    st.markdown("### Exploración interactiva")
+ 
+-include_all_years = fcol1.checkbox(
+-    "Todos los años",
+-    key="include_all_years",
+-)
++    fcol1, fcol2, fcol3, fcol4 = st.columns([1.2, 1.6, 1.0, 1.0])
+ 
+-if include_all_years:
+-    selected_years = all_years
+-    st.session_state["selected_years"] = all_years
+-else:
+-    current_years = st.session_state.get("selected_years", [default_year]) or [default_year]
+-    current_years = [y for y in current_years if y in all_years]
+-    if not current_years:
+-        current_years = [default_year]
+-
+-    selected_years = fcol1.multiselect(
+-        "Años",
+-        options=all_years,
+-        default=current_years,
+-        key="selected_years",
++    include_all_years = fcol1.checkbox(
++        "Todos los años",
++        key="include_all_years",
+     )
+ 
+-    if not selected_years:
+-        st.warning("Debes seleccionar al menos un año.")
+-        st.stop()
+-
+-year_filtered_df = scored_df[scored_df["year"].isin(selected_years)].copy()
+-
+-available_provinces_for_years = sorted(
+-    year_filtered_df["provincia"].dropna().astype(str).unique().tolist()
+-)
++    if include_all_years:
++        selected_years = all_years
++        st.session_state["selected_years"] = all_years
++    else:
++        current_years = st.session_state.get("selected_years", [default_year]) or [default_year]
++        current_years = [y for y in current_years if y in all_years]
++        if not current_years:
++            current_years = [default_year]
++
++        selected_years = fcol1.multiselect(
++            "Años",
++            options=all_years,
++            default=current_years,
++            key="selected_years",
++        )
+ 
+-if not available_provinces_for_years:
+-    st.warning("No hay provincias disponibles para la combinación actual de años.")
+-    st.stop()
++        if not selected_years:
++            st.warning("Debes seleccionar al menos un año.")
++            st.stop()
+ 
+-include_all_provinces = fcol2.checkbox(
+-    "Todas las provincias",
+-    key="include_all_provinces",
+-)
++    year_filtered_df = scored_df[scored_df["year"].isin(selected_years)].copy()
+ 
+-if include_all_provinces:
+-    selected_provinces = available_provinces_for_years
+-    st.session_state["selected_provinces_filter"] = available_provinces_for_years
+-else:
+-    current_provinces = st.session_state.get("selected_provinces_filter", []) or []
+-    current_provinces = [p for p in current_provinces if p in available_provinces_for_years]
+-
+-    selected_provinces = fcol2.multiselect(
+-        "Provincias",
+-        options=available_provinces_for_years,
+-        default=current_provinces,
+-        placeholder="Selecciona una o varias provincias",
+-        key="selected_provinces_filter",
++    available_provinces_for_years = sorted(
++        year_filtered_df["provincia"].dropna().astype(str).unique().tolist()
+     )
+ 
+-    if not selected_provinces:
+-        st.warning("Debes seleccionar al menos una provincia.")
++    if not available_provinces_for_years:
++        st.warning("No hay provincias disponibles para la combinación actual de años.")
+         st.stop()
+ 
+-metric_column = fcol3.selectbox(
+-    "Variable del mapa",
+-    options=METRIC_OPTIONS,
+-    key="metric_column",
+-)
++    include_all_provinces = fcol2.checkbox(
++        "Todas las provincias",
++        key="include_all_provinces",
++    )
+ 
+-num_provinces_visible = len(selected_provinces)
++    if include_all_provinces:
++        selected_provinces = available_provinces_for_years
++        st.session_state["selected_provinces_filter"] = available_provinces_for_years
++    else:
++        current_provinces = st.session_state.get("selected_provinces_filter", []) or []
++        current_provinces = [p for p in current_provinces if p in available_provinces_for_years]
++
++        selected_provinces = fcol2.multiselect(
++            "Provincias",
++            options=available_provinces_for_years,
++            default=current_provinces,
++            placeholder="Selecciona una o varias provincias",
++            key="selected_provinces_filter",
++        )
+ 
+-if num_provinces_visible == 0:
+-    st.warning("No hay provincias disponibles para los filtros actuales.")
+-    st.stop()
++        if not selected_provinces:
++            st.warning("Debes seleccionar al menos una provincia.")
++            st.stop()
+ 
+-if num_provinces_visible <= 3:
+-    top_n = num_provinces_visible
+-    fcol4.info(f"Top-N fijado en {top_n}")
+-else:
+-    current_top_n = coerce_top_n(
+-        num_items=num_provinces_visible,
+-        current_value=st.session_state.get("top_n"),
++    metric_column = fcol3.selectbox(
++        "Variable del mapa",
++        options=METRIC_OPTIONS,
++        key="metric_column",
+     )
+ 
+-    top_n = fcol4.slider(
+-        "Top-N",
+-        min_value=3,
+-        max_value=num_provinces_visible,
+-        value=current_top_n,
+-        key="top_n",
+-    )
++    num_provinces_visible = len(selected_provinces)
+ 
+-show_top_only = st.checkbox(
+-    "Mostrar solo Top-N en ranking y mapa",
+-    key="show_top_only",
+-)
++    if num_provinces_visible == 0:
++        st.warning("No hay provincias disponibles para los filtros actuales.")
++        st.stop()
+ 
+-base_multi_year = (
+-    year_filtered_df[year_filtered_df["provincia"].isin(selected_provinces)]
+-    .sort_values(["provincia", "year"])
+-    .groupby("provincia", as_index=False)
+-    .tail(1)
+-    .copy()
+-)
++    if num_provinces_visible <= 3:
++        top_n = num_provinces_visible
++        st.session_state["top_n"] = top_n
++        fcol4.info(f"Top-N fijado en {top_n}")
++    else:
++        current_top_n = coerce_top_n(
++            num_items=num_provinces_visible,
++            current_value=st.session_state.get("top_n"),
++        )
++        st.session_state["top_n"] = current_top_n
+ 
+-filtered_ranking = build_year_ranking(base_multi_year, int(base_multi_year["year"].max()))
++        top_n = fcol4.slider(
++            "Top-N",
++            min_value=3,
++            max_value=num_provinces_visible,
++            key="top_n",
++        )
+ 
+-filtered_ranking = apply_interactive_filters(
+-    ranking_df=filtered_ranking,
+-    selected_provinces=selected_provinces,
+-    top_n=top_n,
+-    show_top_only=show_top_only,
+-)
++    show_top_only = st.checkbox(
++        "Mostrar solo Top-N en ranking y mapa",
++        key="show_top_only",
++    )
+ 
+-if filtered_ranking.empty:
+-    st.warning("No hay datos disponibles con la combinación actual de filtros.")
+-    st.stop()
++    base_multi_year = (
++        year_filtered_df[year_filtered_df["provincia"].isin(selected_provinces)]
++        .sort_values(["provincia", "year"])
++        .groupby("provincia", as_index=False)
++        .tail(1)
++        .copy()
++    )
+ 
+-province_options = filtered_ranking["provincia"].dropna().astype(str).tolist()
+-sync_focus_province(province_options)
++    filtered_ranking = build_year_ranking(base_multi_year, int(base_multi_year["year"].max()))
+ 
+-selected_year_label = (
+-    str(selected_years[0]) if len(selected_years) == 1 else f"{min(selected_years)}–{max(selected_years)}"
+-)
++    filtered_ranking = apply_interactive_filters(
++        ranking_df=filtered_ranking,
++        selected_provinces=selected_provinces,
++        top_n=top_n,
++        show_top_only=show_top_only,
++    )
+ 
+-render_kpi_summary(
+-    filtered_ranking=filtered_ranking,
+-    metric_column=metric_column,
+-    results=results,
+-    selected_year=max(selected_years),
+-    geo_mode=geo_mode,
+-)
++    if filtered_ranking.empty:
++        st.warning("No hay datos disponibles con la combinación actual de filtros.")
++        st.stop()
+ 
+-forced_section = st.session_state.get("force_section")
+-if forced_section in SECTION_OPTIONS:
+-    widget_index = SECTION_OPTIONS.index(forced_section)
+-else:
+-    current_section = st.session_state.get("active_section", "Mapa y drill-down")
+-    widget_index = SECTION_OPTIONS.index(current_section)
+-
+-selected_section = st.radio(
+-    "Sección",
+-    options=SECTION_OPTIONS,
+-    index=widget_index,
+-    horizontal=True,
+-    key="active_section_widget",
+-    label_visibility="collapsed",
+-)
++    render_trace_table(filtered_ranking)
+ 
+-st.session_state["active_section"] = selected_section
+-st.session_state["force_section"] = None
+-active_section = selected_section
++    province_options = sorted(filtered_ranking["provincia"].dropna().astype(str).unique().tolist())
++    sync_focus_province(province_options)
++
++    selected_year_label = (
++        str(selected_years[0])
++        if len(selected_years) == 1
++        else f"{min(selected_years)}–{max(selected_years)}"
++    )
++else:
++    selected_years = all_years
++    selected_provinces = []
++    selected_year_label = str(all_years[-1]) if all_years else ""
+ 
+ if active_section == "Ranking":
++    render_ranking_section(
++        filtered_ranking=filtered_ranking,
++        top_n=top_n,
++        show_dss_trace=st.session_state.get("show_dss_trace", True),
++    )
+     render_ranking_tab(filtered_ranking=filtered_ranking, top_n=top_n)
+ 
+ elif active_section == "Mapa y drill-down":
+-    if geo_mode == "Omitir mapa":
+-        st.info("Mapa omitido.")
+-    else:
+-        try:
+-            geo_source = load_geojson_source(
+-                geo_mode=geo_mode,
+-                geo_local_path=geo_local_path,
+-                uploaded_geo=uploaded_geo,
+-            )
+-
+-            if geo_source is None:
+-                st.info("Sube un archivo GeoJSON.")
+-            else:
+-                selected_province = st.session_state.get("selected_province")
+-
+-                map_result = build_map_cached(
+-                    df_map=filtered_ranking,
+-                    geo_source=geo_source,
+-                    color_col=metric_column,
+-                    title=f"Mapa nacional por provincia - {selected_year_label}",
+-                    selected_province=selected_province,
+-                )
++    topk_clicked = render_overview_section(
++        filtered_ranking=filtered_ranking,
++        metric_column=metric_column,
++        results=results,
++        selected_year=max(selected_years),
++        geo_mode=geo_mode,
++        metricas_df=metricas_df,
++        top_n=top_n,
++        selected_year_label=selected_year_label,
++        set_selected_province_fn=set_selected_province,
++        show_dss_trace=st.session_state.get("show_dss_trace", True),
++    )
+ 
+-                left_map_col, right_focus_col = st.columns([1.6, 1.0])
+-
+-                with left_map_col:
+-                    st.markdown("### Vista nacional")
+-
+-                    figure = map_result["figure"]
+-                    selected_points = plotly_events(
+-                        figure,
+-                        click_event=True,
+-                        select_event=False,
+-                        hover_event=False,
+-                        override_height=620,
+-                        key=(
+-                            f"plotly_click_map_{selected_year_label}_{metric_column}_"
+-                            f"{show_top_only}_{top_n}_{len(province_options)}"
+-                        ),
+-                    )
+-
+-                    clicked_province = extract_selected_province_from_click(
+-                        selected_points=selected_points,
+-                        fallback_df=map_result["matched_df"],
+-                    )
+-
+-                    if (
+-                        clicked_province in province_options
+-                        and should_accept_map_click(clicked_province)
+-                    ):
+-                        if set_selected_province(clicked_province):
+-                            request_section("Mapa y drill-down")
+-                            st.rerun()
+-
+-                    if debug_map_click:
+-                        with st.expander("Debug del clic del mapa", expanded=False):
+-                            st.write("selected_points:", selected_points)
+-                            st.write("clicked_province:", clicked_province)
+-                            st.write("province_options:", province_options)
+-                            matched_preview = map_result["matched_df"].copy()
+-                            debug_cols = [
+-                                col
+-                                for col in [
+-                                    "provincia",
+-                                    "provincia_canon",
+-                                    "geo_match_name",
+-                                    metric_column,
+-                                ]
+-                                if col in matched_preview.columns
+-                            ]
+-                            if debug_cols:
+-                                st.dataframe(matched_preview[debug_cols], width=FULL_WIDTH)
+-                            else:
+-                                st.dataframe(matched_preview.head(10), width=FULL_WIDTH)
+-
+-                    coverage, unmatched_count = build_geo_quality_summary(
+-                        base_ranking_df=filtered_ranking,
+-                        unmatched_provinces=map_result.get("unmatched_provinces", []),
+-                    )
+-
+-                    q1, q2 = st.columns(2)
+-                    q1.metric("Cobertura geográfica", f"{coverage:.2f}%")
+-                    q2.metric("Provincias sin match", unmatched_count)
+-
+-                    unmatched_provinces = map_result.get("unmatched_provinces", [])
+-                    if unmatched_provinces:
+-                        st.warning(
+-                            "Provincias sin correspondencia en el GeoJSON: "
+-                            f"{unmatched_provinces}"
+-                        )
+-
+-                    st.caption(
+-                        "Haz clic sobre una provincia en el mapa nacional para actualizar la vista focalizada y dejarla marcada."
+-                    )
+-
+-                with right_focus_col:
+-                    st.markdown("### Vista focalizada")
+-
+-                    current_selected = st.session_state.get("selected_province")
+-                    if current_selected not in province_options and province_options:
+-                        current_selected = province_options[0]
+-                        st.session_state["selected_province"] = current_selected
+-                        st.session_state["selected_province_widget"] = current_selected
+-
+-                    if (
+-                        province_options
+-                        and st.session_state.get("selected_province_widget") != current_selected
+-                    ):
+-                        st.session_state["selected_province_widget"] = current_selected
+-
+-                    province_from_ui = st.selectbox(
+-                        "Provincia en foco",
+-                        options=province_options,
+-                        key="selected_province_widget",
+-                    )
+-
+-                    if province_from_ui != current_selected:
+-                        if set_selected_province(province_from_ui):
+-                            request_section("Mapa y drill-down")
+-                            st.rerun()
+-
+-                    clear_selection = st.button(
+-                        "Restablecer foco",
+-                        width=FULL_WIDTH,
+-                        key="clear_province_selection",
+-                    )
+-                    if clear_selection and province_options:
+-                        if set_selected_province(province_options[0]):
+-                            request_section("Mapa y drill-down")
+-                            st.rerun()
+-
+-                    focus_df = filtered_ranking[
+-                        filtered_ranking["provincia"] == st.session_state["selected_province"]
+-                    ].copy()
+-
+-                    if focus_df.empty and province_options:
+-                        fallback_province = province_options[0]
+-                        set_selected_province(fallback_province)
+-                        focus_df = filtered_ranking[
+-                            filtered_ranking["provincia"] == fallback_province
+-                        ].copy()
+-
+-                    focus_map_result = build_map_cached(
+-                        df_map=focus_df,
+-                        geo_source=geo_source,
+-                        color_col=metric_column,
+-                        title=(
+-                            f"Provincia en foco - "
+-                            f"{st.session_state['selected_province']} ({selected_year_label})"
+-                        ),
+-                        selected_province=st.session_state["selected_province"],
+-                    )
+-
+-                    st.plotly_chart(
+-                        focus_map_result["figure"],
+-                        width=FULL_WIDTH,
+-                    )
+-
+-                    if not focus_df.empty:
+-                        province_row = focus_df.iloc[0]
+-                        st.metric("Provincia", province_row["provincia"])
+-                        st.metric("Categoría", str(province_row["categoria"]))
+-                        st.metric("Score actual", f"{float(province_row['score_riesgo']):.3f}")
+-
+-                st.markdown("---")
+-
+-                drill_year = int(max(selected_years))
+-                render_province_drilldown(
+-                    scored_df=scored_df[scored_df["year"].isin(selected_years)].copy(),
+-                    province_name=st.session_state["selected_province"],
+-                    selected_year=drill_year,
+-                )
++    if topk_clicked:
++        st.rerun()
+ 
+-        except Exception as exc:
+-            st.warning(f"No fue posible generar el mapa: {exc}")
++    render_map_section(
++        geo_mode=geo_mode,
++        geo_local_path=geo_local_path,
++        uploaded_geo=uploaded_geo,
++        filtered_ranking=filtered_ranking,
++        metric_column=metric_column,
++        selected_year_label=selected_year_label,
++        show_top_only=show_top_only,
++        top_n=top_n,
++        province_options=province_options,
++        scored_df=scored_df,
++        selected_years=selected_years,
++        set_selected_province_fn=set_selected_province,
++        build_rule_trace_text_fn=build_rule_trace_text,
++        build_recommendation_text_fn=build_recommendation_text,
++    )
+ 
+ elif active_section == "Métricas":
++    if st.session_state.get("show_dss_trace", True):
++        st.caption(
++            "Estas métricas no solo evalúan error del modelo, sino también la calidad de la priorización "
++            "Top-K producida por el DSS."
++        )
+     render_metrics_tab(metricas_df=metricas_df)
+ 
+ elif active_section == "Explicabilidad":
++    if st.session_state.get("show_dss_trace", True):
++        st.caption(
++            "La explicabilidad muestra qué variables pesan más en la generación del score, "
++            "mientras que la decisión operativa final se obtiene después mediante reglas."
++        )
+     render_xai_tab(explain_df=explain_df)
+ 
+ elif active_section == "Narrativa":
+@@ -678,4 +764,10 @@ elif active_section == "Exportación":
+         project_name=PROJECT_NAME,
+         version=VERSION,
+         selected_year=max(selected_years),
+-    )
+\ No newline at end of file
++    )
++
++elif active_section == "Ayuda e interpretación":
++    render_help_section(GLOSARIO_DSS)
++
++elif active_section == "Acerca de":
++    render_about_section()
+\ No newline at end of file
+diff --git a/data/distrito_municipal_rd.json:Zone.Identifier b/data/distrito_municipal_rd.json:Zone.Identifier
+new file mode 100644
+index 0000000..eb3935f
+Binary files /dev/null and b/data/distrito_municipal_rd.json:Zone.Identifier differ
+diff --git a/src/debug_tools.py b/src/debug_tools.py
+new file mode 100644
+index 0000000..4568868
+--- /dev/null
++++ b/src/debug_tools.py
+@@ -0,0 +1,362 @@
++from __future__ import annotations
++
++import logging
++import os
++import time
++from contextlib import contextmanager
++from typing import Any, Iterator
++
++import pandas as pd
++import streamlit as st
++
++
++DEBUG_ENV_VAR = "APP_DEBUG"
++LOGGER_NAME = "dss_hotspots_rd"
++
++
++def is_debug_enabled() -> bool:
++    """
++    Determina si el modo DEBUG global está activo a partir de una variable
++    de entorno. Valores válidos típicos: true, 1, yes, on.
++    """
++    raw_value = os.getenv(DEBUG_ENV_VAR, "false").strip().lower()
++    return raw_value in {"1", "true", "yes", "on"}
++
++
++def configure_logger(name: str = LOGGER_NAME) -> logging.Logger:
++    """
++    Configura y devuelve un logger reutilizable para la aplicación.
++    Evita duplicar handlers si la función se invoca múltiples veces.
++    """
++    logger = logging.getLogger(name)
++
++    if not logger.handlers:
++        handler = logging.StreamHandler()
++        formatter = logging.Formatter(
++            "[%(asctime)s] [%(levelname)s] %(name)s - %(message)s"
++        )
++        handler.setFormatter(formatter)
++        logger.addHandler(handler)
++
++    logger.setLevel(logging.DEBUG if is_debug_enabled() else logging.INFO)
++    logger.propagate = False
++    return logger
++
++
++def sync_debug_state() -> None:
++    """
++    Sincroniza banderas de debug en session_state.
++    En producción fuerza todos los toggles a False.
++    """
++    debug_mode = is_debug_enabled()
++    st.session_state["debug_mode"] = debug_mode
++
++    defaults: dict[str, Any] = {
++        "debug_mode": debug_mode,
++        "debug_map_click": False,
++        "debug_show_state": False,
++        "debug_show_data_preview": False,
++        "debug_show_pipeline_metrics": False,
++        "debug_show_geo_diagnostics": False,
++        "debug_show_trace_table": False,
++    }
++
++    for key, value in defaults.items():
++        if key not in st.session_state:
++            st.session_state[key] = value
++
++    if not debug_mode:
++        st.session_state["debug_map_click"] = False
++        st.session_state["debug_show_state"] = False
++        st.session_state["debug_show_data_preview"] = False
++        st.session_state["debug_show_pipeline_metrics"] = False
++        st.session_state["debug_show_geo_diagnostics"] = False
++        st.session_state["debug_show_trace_table"] = False
++
++
++def render_debug_sidebar() -> None:
++    """
++    Renderiza controles globales de diagnóstico solo cuando APP_DEBUG=true.
++    """
++    if not is_debug_enabled():
++        return
++
++    st.header("Diagnóstico")
++    st.checkbox(
++        "Debug de clic del mapa",
++        key="debug_map_click",
++    )
++    st.checkbox(
++        "Mostrar estado de sesión",
++        key="debug_show_state",
++    )
++    st.checkbox(
++        "Mostrar vista previa de datos",
++        key="debug_show_data_preview",
++    )
++    st.checkbox(
++        "Mostrar métricas internas del pipeline",
++        key="debug_show_pipeline_metrics",
++    )
++    st.checkbox(
++        "Mostrar diagnóstico geográfico",
++        key="debug_show_geo_diagnostics",
++    )
++    st.checkbox(
++        "Mostrar traza técnica DSS",
++        key="debug_show_trace_table",
++    )
++
++
++def debug_flag(flag_name: str, default: bool = False) -> bool:
++    """
++    Devuelve True únicamente si el modo debug global está activo y
++    el flag solicitado está habilitado.
++    """
++    if not is_debug_enabled():
++        return False
++    return bool(st.session_state.get(flag_name, default))
++
++
++def should_debug_map_click() -> bool:
++    return debug_flag("debug_map_click")
++
++
++def measure_runtime(label: str, logger: logging.Logger | None = None) -> "_RuntimeMeasure":
++    """
++    Helper orientado a bloque:
++        with measure_runtime("pipeline", LOGGER) as m:
++            result = run_pipeline(df)
++        elapsed = m.elapsed
++    """
++    return _RuntimeMeasure(label=label, logger=logger)
++
++
++class _RuntimeMeasure:
++    def __init__(self, label: str, logger: logging.Logger | None = None) -> None:
++        self.label = label
++        self.logger = logger
++        self._start: float | None = None
++        self.elapsed: float = 0.0
++
++    def __enter__(self) -> "_RuntimeMeasure":
++        self._start = time.perf_counter()
++        return self
++
++    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
++        if self._start is None:
++            self.elapsed = 0.0
++        else:
++            self.elapsed = time.perf_counter() - self._start
++
++        if self.logger is not None:
++            self.logger.debug(
++                "Runtime '%s' completado en %.6fs",
++                self.label,
++                self.elapsed,
++            )
++
++
++@contextmanager
++def capture_runtime(
++    label: str,
++    logger: logging.Logger | None = None,
++) -> Iterator[dict[str, Any]]:
++    """
++    Variante con contextmanager que expone un diccionario mutable.
++    """
++    payload: dict[str, Any] = {"label": label, "elapsed": None}
++    start = time.perf_counter()
++    try:
++        yield payload
++    finally:
++        payload["elapsed"] = time.perf_counter() - start
++        if logger is not None:
++            logger.debug(
++                "Runtime '%s' completado en %.6fs",
++                label,
++                payload["elapsed"],
++            )
++
++
++def build_pipeline_debug_info(
++    input_df: pd.DataFrame,
++    runtime_sec: float,
++    extra: dict[str, Any] | None = None,
++) -> dict[str, Any]:
++    """
++    Construye un bloque estándar de metadatos técnicos del pipeline.
++    """
++    info: dict[str, Any] = {
++        "pipeline_runtime_sec": round(float(runtime_sec), 6),
++        "input_rows": int(len(input_df)),
++        "input_columns_count": int(len(input_df.columns)),
++        "input_columns": list(input_df.columns),
++    }
++
++    if extra:
++        info.update(extra)
++
++    return info
++
++
++def render_pipeline_metrics(debug_info: dict[str, Any] | None) -> None:
++    """
++    Muestra métricas internas del pipeline.
++    """
++    if not debug_flag("debug_show_pipeline_metrics"):
++        return
++
++    with st.expander("Métricas internas del pipeline", expanded=False):
++        if not debug_info:
++            st.info("No hay métricas internas disponibles.")
++            return
++        st.json(debug_info)
++
++
++def render_session_state_debug(extra_state: dict[str, Any] | None = None) -> None:
++    """
++    Muestra estado relevante de sesión para diagnóstico.
++    """
++    if not debug_flag("debug_show_state"):
++        return
++
++    state_snapshot = {
++        "active_section": st.session_state.get("active_section"),
++        "selected_province": st.session_state.get("selected_province"),
++        "selected_years": st.session_state.get("selected_years"),
++        "selected_provinces_filter": st.session_state.get("selected_provinces_filter"),
++        "include_all_years": st.session_state.get("include_all_years"),
++        "include_all_provinces": st.session_state.get("include_all_provinces"),
++        "metric_column": st.session_state.get("metric_column"),
++        "show_top_only": st.session_state.get("show_top_only"),
++        "top_n": st.session_state.get("top_n"),
++        "debug_mode": st.session_state.get("debug_mode"),
++    }
++
++    if extra_state:
++        state_snapshot.update(extra_state)
++
++    with st.expander("Estado de sesión", expanded=False):
++        st.json(state_snapshot)
++
++
++def render_dataframe_previews(
++    frames: dict[str, pd.DataFrame],
++    max_rows: int = 20,
++) -> None:
++    """
++    Renderiza una vista previa de uno o varios DataFrames.
++    Ejemplo:
++        render_dataframe_previews({
++            "scored_df": scored_df,
++            "metricas_df": metricas_df,
++        })
++    """
++    if not debug_flag("debug_show_data_preview"):
++        return
++
++    with st.expander("Vista previa de datos internos", expanded=False):
++        if not frames:
++            st.info("No hay DataFrames para mostrar.")
++            return
++
++        for name, df in frames.items():
++            st.markdown(f"**{name}**")
++            if isinstance(df, pd.DataFrame) and not df.empty:
++                st.dataframe(df.head(max_rows), width="stretch")
++            elif isinstance(df, pd.DataFrame):
++                st.info(f"{name} está vacío.")
++            else:
++                st.warning(f"{name} no es un DataFrame válido.")
++
++
++def render_geo_debug_panel(
++    coverage: float,
++    unmatched_count: int,
++    unmatched_provinces: list[str] | None,
++    matched_df: pd.DataFrame | None,
++    metric_column: str | None = None,
++) -> None:
++    """
++    Panel técnico para diagnóstico de matching geográfico.
++    """
++    if not debug_flag("debug_show_geo_diagnostics"):
++        return
++
++    unmatched_provinces = unmatched_provinces or []
++
++    with st.expander("Diagnóstico geográfico", expanded=False):
++        st.write("Cobertura:", coverage)
++        st.write("Unmatched count:", unmatched_count)
++        st.write("Unmatched provinces:", unmatched_provinces)
++
++        if matched_df is None:
++            st.info("No hay matched_df disponible.")
++            return
++
++        debug_cols = [
++            col
++            for col in [
++                "provincia",
++                "provincia_canon",
++                "geo_match_name",
++                metric_column,
++            ]
++            if col and col in matched_df.columns
++        ]
++
++        if debug_cols:
++            st.dataframe(matched_df[debug_cols], width="stretch")
++        else:
++            st.dataframe(matched_df.head(20), width="stretch")
++
++
++def render_trace_table(
++    filtered_ranking: pd.DataFrame,
++    trace_columns: list[str] | None = None,
++) -> None:
++    """
++    Muestra una traza técnica del DSS separada de la trazabilidad funcional
++    presentada al usuario final.
++    """
++    if not debug_flag("debug_show_trace_table"):
++        return
++
++    if trace_columns is None:
++        trace_columns = [
++            "provincia",
++            "year",
++            "score_riesgo",
++            "pred_fallecidos_next",
++            "delta_abs",
++            "delta_pct",
++            "categoria",
++            "ranking_posicion",
++            "regla_aplicada",
++            "justificacion_regla",
++        ]
++
++    available_cols = [col for col in trace_columns if col in filtered_ranking.columns]
++
++    with st.expander("Traza técnica DSS", expanded=False):
++        if filtered_ranking.empty:
++            st.info("No hay datos para la traza técnica.")
++            return
++
++        if available_cols:
++            st.dataframe(filtered_ranking[available_cols], width="stretch")
++        else:
++            st.dataframe(filtered_ranking.head(20), width="stretch")
++
++
++def log_debug(
++    logger: logging.Logger,
++    message: str,
++    *args: Any,
++) -> None:
++    """
++    Registra mensajes DEBUG solo cuando el modo global está activo.
++    """
++    if is_debug_enabled():
++        logger.debug(message, *args)
+\ No newline at end of file
+diff --git a/src/glossary.py b/src/glossary.py
+new file mode 100644
+index 0000000..2f10c09
+--- /dev/null
++++ b/src/glossary.py
+@@ -0,0 +1,208 @@
++# src/glossary.py
++
++from __future__ import annotations
++
++from typing import Dict
++
++# =========================================================
++# GLOSARIO COMPLETO (para expander / documentación)
++# =========================================================
++
++GLOSARIO_DSS: Dict[str, str] = {
++    "DSS (Decision Support System)": (
++        "Sistema interactivo que integra datos, modelos analíticos y "
++        "conocimiento experto para apoyar la toma de decisiones en "
++        "contextos semi-estructurados o no estructurados."
++    ),
++    "Pipeline de datos": (
++        "Secuencia estructurada de procesamiento que incluye ingestión, "
++        "limpieza, validación, transformación, modelado y evaluación."
++    ),
++    "Modelo predictivo": (
++        "Algoritmo que aprende patrones a partir de datos históricos para "
++        "generar predicciones, clasificaciones o estimaciones de riesgo."
++    ),
++    "Reglas de negocio": (
++        "Condiciones definidas por expertos del dominio que complementan "
++        "las decisiones generadas por el modelo y permiten ajustar la lógica "
++        "del sistema a necesidades operativas."
++    ),
++    "Sistema híbrido": (
++        "Arquitectura que combina modelos predictivos, reglas de negocio "
++        "y visualización interactiva dentro de un mismo sistema DSS."
++    ),
++    "Top-K Ranking": (
++        "Estrategia de priorización mediante la cual el sistema devuelve "
++        "las K alternativas más relevantes según una puntuación calculada."
++    ),
++    "HitRate@K": (
++        "Métrica de evaluación que mide si el resultado esperado se encuentra "
++        "dentro de las primeras K posiciones del ranking generado."
++    ),
++    "Validación de datos": (
++        "Proceso de verificación de integridad, consistencia y estructura "
++        "de los datos antes de su utilización en el análisis."
++    ),
++    "Feature Engineering": (
++        "Proceso de construcción, transformación y selección de variables "
++        "relevantes que mejoran el desempeño del modelo."
++    ),
++    "GeoJSON": (
++        "Formato estándar para representar datos geoespaciales, utilizado "
++        "para visualizar provincias o regiones en mapas interactivos."
++    ),
++    "Interpretabilidad (XAI)": (
++        "Capacidad del sistema para explicar cómo y por qué se generan "
++        "las predicciones o recomendaciones."
++    ),
++    "Cobertura geográfica": (
++        "Grado en que los datos del sistema logran asociarse correctamente "
++        "con las entidades territoriales disponibles en la capa cartográfica."
++    ),
++    "Registros válidos": (
++        "Conjunto de observaciones que cumplen con los criterios de calidad "
++        "y pueden ser utilizadas en el análisis."
++    ),
++    "Categoría DSS": (
++        "Clasificación de prioridad operativa generada por el sistema de "
++        "soporte a decisiones a partir del score de riesgo y de las reglas "
++        "de decisión aplicadas."
++    ),
++    "Score actual": (
++        "Índice compuesto de riesgo relativo calculado por el DSS para la "
++        "provincia seleccionada. Valores más altos indican mayor prioridad "
++        "operativa."
++    ),
++    "Predicción próxima": (
++        "Estimación del número de fallecidos esperados en el próximo período "
++        "según la salida del modelo."
++    ),
++    "Δ abs.": (
++        "Diferencia absoluta entre el valor actual observado y la predicción "
++        "del próximo período."
++    ),
++    "Posición": (
++        "Lugar que ocupa la provincia dentro del ranking priorizado del DSS "
++        "para los filtros activos."
++    ),
++    "Provincia en foco": (
++        "Provincia seleccionada para análisis detallado en la vista focalizada "
++        "del dashboard."
++    ),
++    "Trazabilidad de la decisión": (
++        "Explicación textual de la regla aplicada, la justificación y la "
++        "recomendación asociadas a la provincia seleccionada."
++    ),
++    "Año de análisis": (
++        "Año seleccionado como referencia para el cálculo del ranking y las métricas."
++    ),
++    "Provincias visibles": (
++        "Número de provincias consideradas en el análisis tras aplicar los filtros activos."
++    ),
++    "MAE": (
++        "Error absoluto medio del modelo. Indica la diferencia promedio entre valores reales y predichos."
++    ),
++    "R²": (
++        "Coeficiente de determinación. Mide qué proporción de la variabilidad es explicada por el modelo."
++    ),
++}
++
++# =========================================================
++# TOOLTIPS DE MÉTRICAS (para UI)
++# =========================================================
++
++METRIC_TOOLTIPS: Dict[str, str] = {
++    "Dataset cargado": (
++        "Indica que la fuente de datos fue leída correctamente y está "
++        "disponible para el procesamiento."
++    ),
++    "Pipeline ejecutado": (
++        "Confirma que la secuencia de carga, validación, transformación "
++        "y análisis se completó sin errores críticos."
++    ),
++    "Ranking generado": (
++        "Señala que el sistema ya calculó la priorización final de entidades "
++        "según la lógica analítica del DSS."
++    ),
++    "Mapa habilitado": (
++        "Indica que la capa geoespacial (GeoJSON) fue cargada y está lista "
++        "para visualización e interacción."
++    ),
++    "Top-K": (
++        "Número de elementos prioritarios que el sistema devuelve como salida "
++        "principal del ranking."
++    ),
++    "HitRate@K": (
++        "Mide si el caso relevante o esperado aparece dentro de las primeras "
++        "K posiciones del ranking generado."
++    ),
++    "Cobertura geográfica": (
++        "Porcentaje o cantidad de territorios que lograron vincularse "
++        "correctamente con la capa cartográfica."
++    ),
++    "Registros válidos": (
++        "Cantidad de observaciones que superaron el proceso de validación "
++        "y pudieron ser utilizadas en el análisis."
++    ),
++    "Categoría DSS": (
++        "Clasificación de prioridad operativa asignada a la provincia "
++        "según el score de riesgo y las reglas de decisión."
++    ),
++    "Score actual": (
++        "Índice compuesto de riesgo relativo calculado por el DSS. "
++        "Valores más altos indican mayor prioridad operativa."
++    ),
++    "Predicción próxima": (
++        "Estimación del número de fallecidos esperados en el próximo período "
++        "según la salida del modelo."
++    ),
++    "Δ abs.": (
++        "Diferencia absoluta entre el valor actual observado y la predicción "
++        "del próximo período."
++    ),
++    "Posición": (
++        "Lugar que ocupa la provincia dentro del ranking priorizado del DSS "
++        "para los filtros activos."
++    ),
++    "Provincia en foco": (
++        "Provincia seleccionada actualmente para análisis detallado en la "
++        "vista focalizada."
++    ),
++    "Trazabilidad de la decisión": (
++        "Resume la regla aplicada, la justificación y la recomendación "
++        "asociadas a la provincia seleccionada."
++    ),
++    "Año de análisis": (
++        "Año seleccionado como referencia para el cálculo del ranking y las métricas."
++    ),
++    "Provincias visibles": (
++        "Número de provincias consideradas en el análisis tras aplicar los filtros activos."
++    ),
++    "MAE": (
++        "Error absoluto medio del modelo. Indica la diferencia promedio entre valores reales y predichos."
++    ),
++    "R²": (
++        "Coeficiente de determinación. Mide qué proporción de la variabilidad es explicada por el modelo."
++    ),
++}
++
++# =========================================================
++# UTILIDAD OPCIONAL (consistencia entre UI y glosario)
++# =========================================================
++
++def get_tooltip(key: str) -> str:
++    """
++    Devuelve el tooltip asociado a una métrica.
++
++    Parameters
++    ----------
++    key : str
++        Nombre de la métrica o concepto.
++
++    Returns
++    -------
++    str
++        Texto del tooltip. Si no existe, retorna cadena vacía
++        para evitar errores en la UI.
++    """
++    return METRIC_TOOLTIPS.get(key, "")
+\ No newline at end of file
+diff --git a/src/pipeline.py b/src/pipeline.py
+index 644593f..f3d182d 100644
+--- a/src/pipeline.py
++++ b/src/pipeline.py
+@@ -7,6 +7,8 @@ import pandas as pd
+ from sklearn.ensemble import RandomForestRegressor
+ from sklearn.metrics import mean_absolute_error, r2_score
+ 
++from src.rules import apply_rules
++
+ 
+ def run_pipeline(df: pd.DataFrame) -> dict[str, Any]:
+     required_cols = {
+@@ -168,6 +170,9 @@ def _fit_and_score(
+     scored_df["pred_fallecidos_next"] = model.predict(scored_df[usable_feature_cols])
+     scored_df = _decorate_scored_df(scored_df)
+ 
++    # DSS real: las categorías se asignan con reglas explícitas
++    scored_df = apply_rules(scored_df)
++
+     explain_df = pd.DataFrame(
+         {
+             "feature": usable_feature_cols,
+@@ -194,6 +199,10 @@ def _build_fallback_scored_df(grouped: pd.DataFrame) -> pd.DataFrame:
+     )
+ 
+     scored_df = _decorate_scored_df(df)
++
++    # DSS real: las categorías se asignan con reglas explícitas
++    scored_df = apply_rules(scored_df)
++
+     return scored_df
+ 
+ 
+@@ -212,9 +221,7 @@ def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
+         .fillna(0.0)
+     )
+ 
+-    df["categoria"] = df["score_riesgo"].apply(_risk_category)
+-
+-    # Compatibilidad con la app
++    # Compatibilidad con la app y con el motor de reglas
+     df["fallecidos_actuales"] = df["fallecidos"]
+     df["delta_abs"] = df["pred_fallecidos_next"] - df["fallecidos_actuales"]
+     df["delta_pct"] = np.where(
+@@ -232,7 +239,6 @@ def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
+             "fallecidos_actuales",
+             "pred_fallecidos_next",
+             "score_riesgo",
+-            "categoria",
+             "delta_abs",
+             "delta_pct",
+         ]
+@@ -416,6 +422,8 @@ def _build_narrative_text(
+         f"{', '.join(top3)}. "
+         f"El desempeño global del modelo reporta un MAE de {mae_text} y un R² de {r2_text}. "
+         f"En términos de priorización Top-K, el HitRate@3 es {hit3_text} y el HitRate@5 es {hit5_text}. "
++        f"La categorización final del DSS no se asigna directamente desde el modelo, "
++        f"sino mediante reglas explícitas aplicadas sobre el score de riesgo y la variación reciente. "
+         f"Esta salida se construye agrupando por provincia canónica para evitar duplicidades "
+         f"nominales, pero conservando el nombre visible de provincia para la capa de visualización."
+     )
+@@ -460,14 +468,4 @@ def _minmax_scale(series: pd.Series) -> pd.Series:
+     if float(s_max) == float(s_min):
+         return pd.Series(np.ones(len(series)) * 0.5, index=series.index)
+ 
+-    return (s - s_min) / (s_max - s_min)
+-
+-
+-def _risk_category(score: float) -> str:
+-    if score >= 0.75:
+-        return "Alta"
+-    if score >= 0.50:
+-        return "Media-Alta"
+-    if score >= 0.25:
+-        return "Media"
+-    return "Baja"
++    return (s - s_min) / (s_max - s_min)
+\ No newline at end of file
+diff --git a/src/ui_about.py b/src/ui_about.py
+new file mode 100644
+index 0000000..37b4597
+--- /dev/null
++++ b/src/ui_about.py
+@@ -0,0 +1,280 @@
++from __future__ import annotations
++
++import streamlit as st
++
++
++def render_about_section() -> None:
++    # ===== ESTILOS =====
++    st.markdown(
++        """
++        <style>
++        .about-hero {
++            padding: 0.2rem 0 0.8rem 0;
++        }
++
++        .about-title {
++            font-size: 2rem;
++            font-weight: 800;
++            color: #f8fafc;
++            margin-bottom: 0.4rem;
++        }
++
++        .about-subtitle {
++            font-size: 0.98rem;
++            line-height: 1.55;
++            color: rgba(255,255,255,0.78);
++            max-width: 900px;
++        }
++
++        .about-section-title {
++            font-size: 1.05rem;
++            font-weight: 800;
++            color: #f8fafc;
++            margin-bottom: 0.6rem;
++        }
++
++        .about-text {
++            font-size: 0.95rem;
++            line-height: 1.65;
++            color: #dbe4ee;
++        }
++
++        .about-muted {
++            font-size: 0.9rem;
++            color: rgba(255,255,255,0.65);
++        }
++
++        .about-key-list {
++            padding-left: 1.1rem;
++            font-size: 0.95rem;
++            color: #dbe4ee;
++            line-height: 1.7;
++        }
++
++        .about-highlight {
++            border-radius: 14px;
++            padding: 14px 16px;
++            margin-top: 0.8rem;
++            border: 1px solid rgba(148, 163, 184, 0.18);
++            background: linear-gradient(
++                90deg,
++                rgba(30, 41, 59, 0.92) 0%,
++                rgba(15, 23, 42, 0.88) 100%
++            );
++        }
++
++        .about-highlight-title {
++            font-size: 0.9rem;
++            font-weight: 700;
++            color: #93c5fd;
++            margin-bottom: 0.25rem;
++        }
++
++        .about-highlight-text {
++            font-size: 0.92rem;
++            color: #dbe4ee;
++        }
++
++        .about-link a {
++            color: #93c5fd !important;
++            font-weight: 700;
++            text-decoration: none;
++        }
++
++        .about-link a:hover {
++            text-decoration: underline;
++        }
++
++        .about-footer {
++            margin-top: 1.2rem;
++            padding-top: 0.8rem;
++            border-top: 1px solid rgba(148, 163, 184, 0.16);
++            font-size: 0.85rem;
++            color: rgba(255,255,255,0.55);
++        }
++        </style>
++        """,
++        unsafe_allow_html=True,
++    )
++
++    # ===== HEADER =====
++    st.markdown(
++        """
++        <div class="about-hero">
++            <div class="about-title">Acerca del proyecto</div>
++            <div class="about-subtitle">
++                Sistema de soporte a la decisión (DSS) orientado a la priorización del riesgo vial
++                en República Dominicana, integrando modelos predictivos, reglas de negocio y
++                visualización geoespacial para apoyar la toma de decisiones.
++            </div>
++        </div>
++        """,
++        unsafe_allow_html=True,
++    )
++
++    st.markdown("---")
++
++    # ===== COLUMNAS =====
++    col1, col2 = st.columns([1.05, 1.15])
++
++    # ===== IZQUIERDA =====
++    with col1:
++        st.markdown(
++            "<div class='about-section-title'>Información académica</div>",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            """
++**Asignatura**  
++INF-5120 – Sistemas de Soporte a la Decisión  
++
++**Autor**  
++Edwin José Nolasco  
++
++**Programa**  
++Doctorado en Inteligencia Artificial y Machine Learning  
++
++**Institución**  
++Universidad Autónoma de Santo Domingo (UASD)  
++
++**Catedrático**  
++Dr. Manuel Quesada Martínez 
++"""
++        )
++
++        st.markdown(
++            "<div class='about-section-title' style='margin-top:1rem;'>Descripción del sistema</div>",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            """
++<div class="about-text">
++Este sistema implementa un DSS híbrido que separa claramente la fase predictiva de la
++fase de decisión. Primero estima el comportamiento esperado mediante modelos, y luego
++transforma esa salida en categorías operativas mediante reglas interpretables.
++</div>
++""",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            """
++            <div class="about-highlight">
++                <div class="about-highlight-title">Propósito</div>
++                <div class="about-highlight-text">
++                    Transformar resultados analíticos en decisiones interpretables,
++                    priorizadas y visualmente comprensibles para análisis territorial.
++                </div>
++            </div>
++            """,
++            unsafe_allow_html=True,
++        )
++
++    # ===== DERECHA =====
++    with col2:
++        st.markdown(
++            "<div class='about-section-title'>Información técnica</div>",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            """
++<ul class="about-key-list">
++<li><strong>Tipo:</strong> DSS híbrido</li>
++<li><strong>Dominio:</strong> Seguridad vial</li>
++<li><strong>Periodo:</strong> 2017–2026</li>
++<li><strong>Lenguaje:</strong> Python</li>
++<li><strong>Framework:</strong> Streamlit</li>
++<li><strong>Librerías:</strong> Pandas, Scikit-learn, Plotly</li>
++</ul>
++""",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            "<div class='about-section-title'>Arquitectura</div>",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            """
++<div class="about-text">
++El sistema integra ingestión de datos, modelado predictivo, motor de reglas DSS
++y visualización interactiva para análisis y priorización.
++</div>
++""",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            "<div class='about-section-title'>Metodología</div>",
++            unsafe_allow_html=True,
++        )
++
++        st.markdown(
++            """
++<ul class="about-key-list">
++<li>Métricas Top-K (HitRate, Precision)</li>
++<li>Separación predicción / decisión</li>
++<li>Reglas interpretables</li>
++<li>Enfoque en lectura ejecutiva</li>
++</ul>
++""",
++            unsafe_allow_html=True,
++        )
++
++    st.markdown("---")
++
++    # ===== REPOSITORIO =====
++    col_repo, col_license = st.columns([1.2, 1])
++
++    with col_repo:
++        st.markdown(
++            """
++<div class="about-section-title">Repositorio</div>
++<div class="about-link">
++<a href="https://github.com/edjnolasco/dss_hotspots_rd" target="_blank">
++github.com/edjnolasco/dss_hotspots_rd
++</a>
++</div>
++<div class="about-muted">
++Código fuente completo del sistema DSS, incluyendo pipeline, visualización y reglas.
++</div>
++""",
++            unsafe_allow_html=True,
++        )
++
++    with col_license:
++        st.markdown(
++            """
++<div class="about-section-title">Licencia</div>
++<div class="about-text">
++MIT License
++</div>
++<div class="about-muted">
++Permite uso, modificación y distribución con atribución.
++</div>
++""",
++            unsafe_allow_html=True,
++        )
++
++    st.markdown("---")
++
++    # ===== CIERRE =====
++    st.markdown(
++        """
++<div class="about-section-title">Alcance del sistema</div>
++<div class="about-text">
++El DSS integra ranking, mapa, análisis por provincia y explicabilidad para
++transformar datos en decisiones interpretables. No se limita a predecir,
++sino a priorizar y justificar.
++</div>
++
++<div class="about-footer">
++Proyecto académico desarrollado bajo enfoque de ingeniería DSS y analítica aplicada.
++</div>
++""",
++        unsafe_allow_html=True,
++    )
+\ No newline at end of file
+diff --git a/src/ui_components.py b/src/ui_components.py
+new file mode 100644
+index 0000000..06e84ed
+--- /dev/null
++++ b/src/ui_components.py
+@@ -0,0 +1,324 @@
++# src/ui_components.py
++
++from __future__ import annotations
++
++import html
++from typing import Mapping
++
++import streamlit as st
++
++from src.glossary import get_tooltip
++
++
++def _escape(value: object) -> str:
++    """Escapa texto para evitar problemas al renderizar HTML."""
++    return html.escape("" if value is None else str(value))
++
++
++def _is_valid_text(value: str | None) -> bool:
++    """Valida que el texto no sea None ni vacío."""
++    return value is not None and str(value).strip() != ""
++
++
++def render_label_with_tooltip(label: str, help_text: str) -> str:
++    """
++    Construye un label con icono de ayuda usando tooltip nativo del navegador.
++    """
++
++    if not _is_valid_text(help_text):
++        return f"""
++        <div style="font-weight:600; font-size:1rem; color:#f8fafc; margin-bottom:6px;">
++            {_escape(label)}
++        </div>
++        """
++
++    safe_label = _escape(label)
++    safe_help = _escape(help_text)
++
++    return f"""
++    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
++        <span style="font-weight:600; font-size:1rem; color:#f8fafc;">
++            {safe_label}
++        </span>
++        <span
++            title="{safe_help}"
++            style="
++                display:inline-flex;
++                align-items:center;
++                justify-content:center;
++                width:18px;
++                height:18px;
++                border-radius:50%;
++                background:#1f2937;
++                color:#93c5fd;
++                font-size:12px;
++                font-weight:700;
++                cursor:help;
++                border:1px solid #374151;
++                user-select:none;
++            "
++        >
++            i
++        </span>
++    </div>
++    """
++
++
++# =========================================================
++# STATUS CARD
++# =========================================================
++
++def render_status_card(
++    label: str,
++    status: bool,
++    tooltip: str | None = None,
++    ok_bg: str = "#14532d",
++    ok_fg: str = "#4ade80",
++    off_bg: str = "#172554",
++    off_fg: str = "#60a5fa",
++    margin_bottom_px: int = 14,
++) -> None:
++
++    background = ok_bg if status else off_bg
++    foreground = ok_fg if status else off_fg
++
++    resolved_tooltip = tooltip if tooltip is not None else get_tooltip(label)
++
++    title_html = render_label_with_tooltip(label, resolved_tooltip)
++
++    st.markdown(
++        f"""
++        <div style="
++            background:{background};
++            color:{foreground};
++            padding:18px 20px;
++            border-radius:12px;
++            margin-bottom:{margin_bottom_px}px;
++            box-shadow: 0 1px 2px rgba(0,0,0,0.12);
++        ">
++            {title_html}
++        </div>
++        """,
++        unsafe_allow_html=True,
++    )
++
++
++# =========================================================
++# METRIC CARD
++# =========================================================
++
++def render_metric_card(
++    label: str,
++    value: object,
++    tooltip: str | None = None,
++    value_suffix: str = "",
++    background: str = "#0f172a",
++    border_color: str = "#1e293b",
++    label_color: str = "#cbd5e1",
++    value_color: str = "#f8fafc",
++    min_height_px: int = 110,
++) -> None:
++
++    resolved_tooltip = tooltip if tooltip is not None else get_tooltip(label)
++
++    title_html = render_label_with_tooltip(label, resolved_tooltip)
++
++    display_value = f"{_escape(value)}{_escape(value_suffix)}"
++
++    st.markdown(
++        f"""
++        <div style="
++            background:{background};
++            border:1px solid {border_color};
++            border-radius:14px;
++            padding:16px;
++            min-height:{min_height_px}px;
++            box-shadow: 0 1px 2px rgba(0,0,0,0.10);
++        ">
++            {title_html}
++            <div style="
++                font-size:1.8rem;
++                font-weight:700;
++                color:{value_color};
++                margin-top:8px;
++                line-height:1.2;
++            ">
++                {display_value}
++            </div>
++        </div>
++        """,
++        unsafe_allow_html=True,
++    )
++
++
++# =========================================================
++# INFO BOX
++# =========================================================
++
++def render_info_box(
++    title: str,
++    content: str,
++    icon: str = "ℹ️",
++    background: str = "#111827",
++    border_left: str = "#22c55e",
++    title_color: str = "#f8fafc",
++    text_color: str = "#d1d5db",
++) -> None:
++    st.markdown(
++        f"""
++        <div style="
++            background:{background};
++            padding:14px 16px;
++            border-radius:10px;
++            border-left:4px solid {border_left};
++            margin-bottom:10px;
++        ">
++            <div style="font-weight:700; color:{title_color}; margin-bottom:6px;">
++                {_escape(icon)} {_escape(title)}
++            </div>
++            <div style="color:{text_color}; line-height:1.55;">
++                {_escape(content)}
++            </div>
++        </div>
++        """,
++        unsafe_allow_html=True,
++    )
++
++
++# =========================================================
++# GLOSSARY EXPANDER
++# =========================================================
++
++def render_glossary_expander(
++    glossary: Mapping[str, str],
++    title: str = "📘 Ayuda y glosario DSS",
++    intro: str = (
++        "Conceptos clave utilizados en la lógica del sistema y en la "
++        "interpretación del dashboard."
++    ),
++    expanded: bool = False,
++) -> None:
++
++    with st.expander(title, expanded=expanded):
++        if intro:
++            st.markdown(intro)
++
++        for term, definition in glossary.items():
++            st.markdown(f"**{_escape(term)}.** {_escape(definition)}")
++
++
++# =========================================================
++# STATUS PANEL
++# =========================================================
++
++def render_status_panel(
++    title: str,
++    items: list[dict],
++) -> None:
++
++    st.markdown(f"## {_escape(title)}")
++
++    for item in items:
++        render_status_card(
++            label=item["label"],
++            status=item["status"],
++            tooltip=item.get("tooltip"),
++            ok_bg=item.get("ok_bg", "#14532d"),
++            ok_fg=item.get("ok_fg", "#4ade80"),
++            off_bg=item.get("off_bg", "#172554"),
++            off_fg=item.get("off_fg", "#60a5fa"),
++        )
++
++
++# =========================================================
++# METRICS GRID
++# =========================================================
++
++def render_metrics_grid(
++    metrics: list[dict],
++    columns: int = 3,
++) -> None:
++
++    if columns < 1:
++        raise ValueError("El parámetro 'columns' debe ser mayor o igual a 1.")
++
++    cols = st.columns(columns)
++
++    for idx, metric in enumerate(metrics):
++        col = cols[idx % columns]
++
++        with col:
++            render_metric_card(
++                label=metric["label"],
++                value=metric["value"],
++                tooltip=metric.get("tooltip"),
++                value_suffix=metric.get("value_suffix", ""),
++                background=metric.get("background", "#0f172a"),
++                border_color=metric.get("border_color", "#1e293b"),
++                label_color=metric.get("label_color", "#cbd5e1"),
++                value_color=metric.get("value_color", "#f8fafc"),
++            )
++
++# =========================================================
++# DSS TEXT (DESCRIPTIVE vs ANALYTIC)
++# =========================================================
++
++def inject_dss_text_styles() -> None:
++    """
++    Inyecta estilos para texto descriptivo y analítico DSS.
++    Debe llamarse una sola vez por vista.
++    """
++    st.markdown(
++        """
++        <style>
++        .dss-text-desc {
++            color: rgba(255, 255, 255, 0.76);
++            font-size: 0.93rem;
++            line-height: 1.45;
++            margin-top: -4px;
++            margin-bottom: 12px;
++        }
++
++        .dss-text-analytic {
++            color: #7cc4ff;
++            font-size: 0.95rem;
++            line-height: 1.5;
++            margin-top: -2px;
++            margin-bottom: 14px;
++            font-weight: 500;
++        }
++
++        .dss-text-analytic strong {
++            color: #a8d8ff;
++            font-weight: 700;
++        }
++        </style>
++        """,
++        unsafe_allow_html=True,
++    )
++
++
++def render_text_desc(text: str) -> None:
++    """
++    Renderiza texto descriptivo DSS (contexto, explicación).
++    """
++    if not _is_valid_text(text):
++        return
++
++    st.markdown(
++        f"<div class='dss-text-desc'>{_escape(text)}</div>",
++        unsafe_allow_html=True,
++    )
++
++
++def render_text_analytic(text: str) -> None:
++    """
++    Renderiza texto analítico DSS (resultados, métricas, insights).
++    """
++    if not _is_valid_text(text):
++        return
++
++    st.markdown(
++        f"<div class='dss-text-analytic'>{text}</div>",  # NO escape (permite <strong>)
++        unsafe_allow_html=True,
++    )
+\ No newline at end of file
+diff --git a/src/ui_help.py b/src/ui_help.py
+new file mode 100644
+index 0000000..aa17f9e
+--- /dev/null
++++ b/src/ui_help.py
+@@ -0,0 +1,103 @@
++from __future__ import annotations
++
++import streamlit as st
++from typing import Any
++
++from src.ui_components import render_glossary_expander
++
++
++def render_help_section(glossary: dict[str, Any]) -> None:
++    """
++    Renderiza la sección 'Ayuda e interpretación' del DSS.
++
++    Esta sección centraliza:
++    - criterios de lectura del sistema
++    - definiciones clave
++    - glosario DSS
++    """
++
++    st.markdown("### Ayuda e interpretación")
++    st.caption(
++        "Esta sección reúne definiciones, criterios de lectura e interpretación "
++        "de la salida generada por el sistema."
++    )
++
++    help_col1, help_col2 = st.columns([1.15, 1.0])
++
++    # =========================
++    # Columna izquierda
++    # =========================
++    with help_col1:
++
++        with st.container(border=True):
++            st.markdown("**Cómo leer la salida del DSS**")
++            st.write(
++                "El sistema no presenta únicamente una predicción aislada. "
++                "La salida final combina una capa analítica y una capa de reglas, "
++                "por lo que la prioridad operativa depende tanto del comportamiento "
++                "estimado como de la lógica de decisión aplicada."
++            )
++
++        with st.container(border=True):
++            st.markdown("**Claves de interpretación**")
++
++            st.write(
++                "**Score de riesgo.** Resume la intensidad relativa del riesgo y sirve "
++                "como base para la priorización comparativa entre provincias."
++            )
++
++            st.write(
++                "**Predicción próxima.** Representa el valor esperado para el siguiente "
++                "período, útil para anticipar deterioro, estabilidad o mejora."
++            )
++
++            st.write(
++                "**Δ abs. y Δ %.** Expresan la magnitud del cambio entre la situación "
++                "actual y la estimación siguiente, en términos absolutos y relativos."
++            )
++
++            st.write(
++                "**Categoría DSS.** Es la clasificación operativa final que el sistema "
++                "asigna después de aplicar la lógica de reglas."
++            )
++
++            st.write(
++                "**Top-K.** Corresponde al subconjunto de provincias que concentran la "
++                "prioridad de intervención o seguimiento en el escenario analizado."
++            )
++
++        with st.container(border=True):
++            st.markdown("**Lectura metodológica mínima**")
++            st.write(
++                "La vista de ranking refleja la salida final del DSS. "
++                "La sección de métricas evalúa la calidad de la priorización, "
++                "la explicabilidad permite observar el peso relativo de variables "
++                "y la narrativa resume los hallazgos principales en lenguaje interpretativo."
++            )
++
++        with st.container(border=True):
++            st.markdown("**Nota de uso**")
++            st.write(
++                "La interpretación adecuada del DSS requiere considerar conjuntamente "
++                "la categoría asignada, la posición en el ranking, la predicción siguiente "
++                "y el contexto comparativo entre provincias."
++            )
++
++    # =========================
++    # Columna derecha
++    # =========================
++    with help_col2:
++
++        with st.container(border=True):
++            st.markdown("**Glosario integrado**")
++            st.caption(
++                "Conceptos clave utilizados en la lógica del sistema y en la "
++                "interpretación del dashboard."
++            )
++
++            render_glossary_expander(
++                glossary=glossary,
++                title="Conceptos del glosario",
++                intro="",
++                expanded=False,
++            )
+\ No newline at end of file
+diff --git a/src/ui_map.py b/src/ui_map.py
+index 39473ea..0549c62 100644
+--- a/src/ui_map.py
++++ b/src/ui_map.py
+@@ -24,29 +24,38 @@ GEO_CANDIDATE_KEYS = [
+     "nom_prov",
+ ]
+ 
+-# Normalización robusta de categorías
+ RISK_CATEGORY_MAP = {
+-    "baja": "Baja",
+-    "bajo": "Baja",
+-    "media": "Media",
+-    "medio": "Media",
+-    "media alta": "Media-Alta",
+-    "media-alta": "Media-Alta",
+-    "media_alta": "Media-Alta",
+-    "medio alto": "Media-Alta",
+-    "medio-alto": "Media-Alta",
+-    "alta": "Alta",
+-    "alto": "Alta",
++    "alta prioridad": "Alta prioridad",
++    "alta": "Alta prioridad",
++    "alto": "Alta prioridad",
++    "vigilancia preventiva": "Vigilancia preventiva",
++    "media": "Vigilancia preventiva",
++    "medio": "Vigilancia preventiva",
++    "media alta": "Vigilancia preventiva",
++    "media-alta": "Vigilancia preventiva",
++    "media_alta": "Vigilancia preventiva",
++    "medio alto": "Vigilancia preventiva",
++    "medio-alto": "Vigilancia preventiva",
++    "seguimiento rutinario": "Seguimiento rutinario",
++    "baja": "Seguimiento rutinario",
++    "bajo": "Seguimiento rutinario",
++    "n/d": "N/D",
++    "nd": "N/D",
++    "": "N/D",
+ }
+ 
+ RISK_COLOR_MAP = {
+-    "Baja": "#48c774",
+-    "Media": "#d4c61c",
+-    "Media-Alta": "#ff8c42",
+-    "Alta": "#e74c3c",
++    "Alta prioridad": "#e74c3c",
++    "Vigilancia preventiva": "#f39c12",
++    "Seguimiento rutinario": "#2ecc71",
++    "N/D": "#bdc3c7",
+ }
+ 
+-RISK_CATEGORY_ORDER = ["Baja", "Media", "Media-Alta", "Alta"]
++RISK_CATEGORY_ORDER = [
++    "Seguimiento rutinario",
++    "Vigilancia preventiva",
++    "Alta prioridad",
++]
+ 
+ 
+ def _safe_str(value: Any) -> str:
+@@ -168,50 +177,29 @@ def extract_selected_province_from_click(
+ 
+     point = selected_points[0] or {}
+ 
+-    valid_provinces: set[str] = set()
+-    if "provincia" in fallback_df.columns:
+-        valid_provinces = set(
+-            fallback_df["provincia"].dropna().astype(str).str.strip().tolist()
+-        )
+-
+-    candidate_fields = [
+-        point.get("customdata"),
+-        point.get("location"),
+-        point.get("hovertext"),
+-        point.get("text"),
+-        point.get("x"),
+-        point.get("y"),
+-    ]
+-
+-    for candidate in candidate_fields:
+-        if isinstance(candidate, (list, tuple)) and candidate:
+-            candidate = candidate[0]
+-
+-        if candidate is None:
+-            continue
+-
+-        candidate_str = _safe_str(candidate)
+-        if not candidate_str:
+-            continue
+-
+-        candidate_canonical = canonical_province(candidate_str)
+-
+-        if candidate_canonical and (
+-            not valid_provinces or candidate_canonical in valid_provinces
+-        ):
+-            return candidate_canonical
++    customdata = point.get("customdata")
+ 
+-        candidate_normalized = normalize_text(candidate_str)
+-        for province in valid_provinces:
+-            if normalize_text(province) == candidate_normalized:
+-                return province
+-
+-    point_index = point.get("pointIndex")
+-    if isinstance(point_index, int) and not fallback_df.empty:
+-        if 0 <= point_index < len(fallback_df):
+-            province = fallback_df.iloc[point_index].get("provincia")
+-            if province:
+-                return str(province).strip()
++    if isinstance(customdata, (list, tuple)):
++        for item in customdata:
++            candidate = _safe_str(item)
++            if candidate:
++                canon = canonical_province(candidate)
++                if canon:
++                    return canon
++
++    elif customdata is not None:
++        candidate = _safe_str(customdata)
++        if candidate:
++            canon = canonical_province(candidate)
++            if canon:
++                return canon
++
++    for key in ("location", "text", "hovertext"):
++        candidate = _safe_str(point.get(key))
++        if candidate:
++            canon = canonical_province(candidate)
++            if canon:
++                return canon
+ 
+     return None
+ 
+@@ -263,22 +251,24 @@ def _prepare_map_dataframe(
+     )
+ 
+     matched_df = df[df["geo_match_name"].notna()].copy()
+-    matched_df = matched_df.sort_values(["provincia"]).reset_index(drop=True)
++    matched_df = matched_df.drop_duplicates(subset=["provincia"]).reset_index(drop=True)
+ 
+     return matched_df, unmatched
+ 
+ 
+-def _build_hover_template_numeric(color_col: str) -> str:
+-    return (
+-        "<b>%{customdata[0]}</b><br>"
+-        + f"{color_col}: %{{z}}"
+-        + "<extra></extra>"
+-    )
++def _normalize_risk_category(value: Any) -> str:
++    raw = _safe_str(value)
++    if not raw:
++        return "N/D"
+ 
++    text = normalize_text(raw)
++    if text in RISK_CATEGORY_MAP:
++        return RISK_CATEGORY_MAP[text]
+ 
+-def _normalize_risk_category(value: Any) -> str:
+-    text = normalize_text(value)
+-    return RISK_CATEGORY_MAP.get(text, _safe_str(value))
++    if raw in {"Alta prioridad", "Vigilancia preventiva", "Seguimiento rutinario", "N/D"}:
++        return raw
++
++    return raw
+ 
+ 
+ def _build_base_geo_layer(
+@@ -286,7 +276,7 @@ def _build_base_geo_layer(
+     featureidkey: str,
+ ) -> go.Choropleth:
+     features = geo_source.get("features", []) or []
+-    all_locations = []
++    all_locations: list[str] = []
+ 
+     for feature in features:
+         raw_name = _extract_feature_name(feature)
+@@ -303,7 +293,58 @@ def _build_base_geo_layer(
+         marker_line_color="white",
+         marker_line_width=0.7,
+         hoverinfo="skip",
+-        name="Sin datos",
++        name="Base",
++    )
++
++
++def _format_hover_number(value: Any, decimals: int = 2, signed: bool = False) -> str:
++    numeric = pd.to_numeric(value, errors="coerce")
++    if pd.isna(numeric):
++        return "N/D"
++    return f"{float(numeric):+.{decimals}f}" if signed else f"{float(numeric):.{decimals}f}"
++
++
++def _build_hover_fields(df: pd.DataFrame) -> pd.DataFrame:
++    plot_df = df.copy()
++
++    plot_df["hover_score_riesgo"] = plot_df.get(
++        "score_riesgo",
++        pd.Series(index=plot_df.index),
++    ).map(lambda x: _format_hover_number(x, decimals=3, signed=False))
++
++    plot_df["hover_pred_fallecidos_next"] = plot_df.get(
++        "pred_fallecidos_next",
++        pd.Series(index=plot_df.index),
++    ).map(lambda x: _format_hover_number(x, decimals=2, signed=False))
++
++    plot_df["hover_delta_abs"] = plot_df.get(
++        "delta_abs",
++        pd.Series(index=plot_df.index),
++    ).map(lambda x: _format_hover_number(x, decimals=2, signed=True))
++
++    plot_df["hover_categoria"] = (
++        plot_df.get("categoria", pd.Series(index=plot_df.index))
++        .map(_normalize_risk_category)
++        .fillna("N/D")
++    )
++
++    plot_df["hover_ranking_posicion"] = plot_df.get(
++        "ranking_posicion",
++        pd.Series(index=plot_df.index),
++    ).map(lambda x: f"#{int(x)}" if pd.notna(pd.to_numeric(x, errors="coerce")) else "N/D")
++
++    return plot_df
++
++
++def _build_hover_template_full() -> str:
++    return (
++        "<b>%{customdata[0]}</b><br>"
++        "Score de riesgo: %{customdata[1]}<br>"
++        "Predicción siguiente: %{customdata[2]}<br>"
++        "Δ abs.: %{customdata[3]}<br>"
++        "Categoría DSS: %{customdata[4]}<br>"
++        "Posición: %{customdata[5]}"
++        "<extra></extra>"
+     )
+ 
+ 
+@@ -313,7 +354,23 @@ def _build_categorical_trace(
+     featureidkey: str,
+     category_name: str,
+ ) -> go.Choropleth:
+-    color = RISK_COLOR_MAP[category_name]
++    color = RISK_COLOR_MAP.get(category_name, RISK_COLOR_MAP["N/D"])
++
++    subset = _build_hover_fields(subset.copy())
++    subset["provincia_click"] = subset["provincia"].astype(str).str.strip()
++
++    customdata = list(
++        zip(
++            subset["provincia_click"],
++            subset["hover_score_riesgo"],
++            subset["hover_pred_fallecidos_next"],
++            subset["hover_delta_abs"],
++            subset["hover_categoria"],
++            subset["hover_ranking_posicion"],
++            strict=False,
++        )
++    )
++
+     return go.Choropleth(
+         geojson=geo_source,
+         locations=subset["geo_match_name"].tolist(),
+@@ -323,12 +380,87 @@ def _build_categorical_trace(
+         showscale=False,
+         marker_line_color="white",
+         marker_line_width=0.7,
+-        customdata=subset[["provincia", "categoria_normalizada"]].values,
+-        hovertemplate="<b>%{customdata[0]}</b><br>categoria: %{customdata[1]}<extra></extra>",
++        customdata=customdata,
++        hovertemplate=_build_hover_template_full(),
+         name=category_name,
+     )
+ 
+ 
++def _build_numeric_map_figure(
++    plot_df: pd.DataFrame,
++    geo_source: dict[str, Any],
++    featureidkey: str,
++    color_col: str,
++    title: str,
++):
++    numeric_series = pd.to_numeric(plot_df[color_col], errors="coerce")
++
++    if numeric_series.notna().any():
++        vmin = float(numeric_series.min())
++        vmax = float(numeric_series.max())
++    else:
++        vmin, vmax = 0.0, 1.0
++
++    if vmin == vmax:
++        vmax = vmin + 1e-6
++
++    is_diverging = color_col == "delta_pct"
++
++    if is_diverging:
++        abs_max = float(numeric_series.abs().max()) if numeric_series.notna().any() else 1.0
++        abs_max = abs_max if abs_max > 0 else 1.0
++        range_color = (-abs_max, abs_max)
++        color_scale = "RdYlGn_r"
++    else:
++        range_color = (vmin, vmax)
++        color_scale = "Turbo"
++
++    choropleth = px.choropleth(
++        plot_df,
++        geojson=geo_source,
++        locations="geo_match_name",
++        featureidkey=featureidkey,
++        color=color_col,
++        hover_name="provincia",
++        custom_data=[
++            "provincia",
++            "hover_score_riesgo",
++            "hover_pred_fallecidos_next",
++            "hover_delta_abs",
++            "hover_categoria",
++            "hover_ranking_posicion",
++        ],
++        title=title,
++        color_continuous_scale=color_scale,
++        range_color=range_color,
++    )
++
++    colorbar_title = color_col.replace("_", " ").title()
++    if color_col == "delta_pct":
++        colorbar_title = "Delta %"
++
++    choropleth.update_traces(
++        marker_line_width=0.7,
++        marker_line_color="white",
++        hovertemplate=_build_hover_template_full(),
++    )
++
++    choropleth.update_layout(
++        coloraxis_colorbar=dict(
++            title=colorbar_title,
++            thickness=18,
++            len=0.78,
++            y=0.5,
++            yanchor="middle",
++            outlinewidth=0,
++            tickfont=dict(size=11, color="#cbd5e1"),
++            titlefont=dict(size=12, color="#e2e8f0"),
++        )
++    )
++
++    return choropleth
++
++
+ @st.cache_data(show_spinner=False)
+ def build_map_cached(
+     df_map: pd.DataFrame,
+@@ -374,6 +506,7 @@ def build_map_cached(
+ 
+     plot_df = matched_df.copy()
+     plot_df["is_selected"] = False
++
+     if selected_province:
+         selected_canonical = canonical_province(selected_province)
+         plot_df["is_selected"] = (
+@@ -389,6 +522,7 @@ def build_map_cached(
+             subset = plot_df[plot_df["categoria_normalizada"] == category_name].copy()
+             if subset.empty:
+                 continue
++
+             figure.add_trace(
+                 _build_categorical_trace(
+                     subset=subset,
+@@ -397,27 +531,38 @@ def build_map_cached(
+                     category_name=category_name,
+                 )
+             )
++
++        nd_subset = plot_df[
++            ~plot_df["categoria_normalizada"].isin(RISK_CATEGORY_ORDER)
++        ].copy()
++
++        if not nd_subset.empty:
++            nd_subset["categoria_normalizada"] = "N/D"
++            figure.add_trace(
++                _build_categorical_trace(
++                    subset=nd_subset,
++                    geo_source=geo_source,
++                    featureidkey=featureidkey,
++                    category_name="N/D",
++                )
++            )
+     else:
+-        choropleth = px.choropleth(
+-            plot_df,
+-            geojson=geo_source,
+-            locations="geo_match_name",
++        plot_df = _build_hover_fields(plot_df)
++
++        numeric_fig = _build_numeric_map_figure(
++            plot_df=plot_df,
++            geo_source=geo_source,
+             featureidkey=featureidkey,
+-            color=color_col,
+-            hover_name="provincia",
+-            custom_data=["provincia"],
++            color_col=color_col,
+             title=title,
+         )
+ 
+-        choropleth.update_traces(
+-            marker_line_width=0.7,
+-            marker_line_color="white",
+-            hovertemplate=_build_hover_template_numeric(color_col),
+-        )
+-
+-        for trace in choropleth.data:
++        for trace in numeric_fig.data:
+             figure.add_trace(trace)
+ 
++        if hasattr(numeric_fig.layout, "coloraxis") and numeric_fig.layout.coloraxis:
++            figure.update_layout(coloraxis=numeric_fig.layout.coloraxis)
++
+     if selected_province:
+         selected_df = plot_df[plot_df["is_selected"]].copy()
+         if not selected_df.empty:
+@@ -442,20 +587,24 @@ def build_map_cached(
+     figure.update_geos(
+         fitbounds="locations",
+         visible=False,
++        bgcolor="rgba(0,0,0,0)",
+     )
+ 
+     layout_kwargs = dict(
++        title=title,
+         margin=dict(l=0, r=0, t=60, b=0),
+         height=620,
+         clickmode="event+select",
++        paper_bgcolor="rgba(0,0,0,0)",
++        plot_bgcolor="rgba(0,0,0,0)",
+         legend=dict(
+-            title="Nivel de riesgo",
++            title="Nivel de riesgo DSS",
+             orientation="v",
+         ),
+     )
+ 
+     if not is_categorical_risk:
+-        layout_kwargs["legend_title_text"] = color_col
++        layout_kwargs["legend_title_text"] = color_col.replace("_", " ").title()
+ 
+     figure.update_layout(**layout_kwargs)
+ 
+diff --git a/src/ui_map_section.py b/src/ui_map_section.py
+new file mode 100644
+index 0000000..d494ff2
+--- /dev/null
++++ b/src/ui_map_section.py
+@@ -0,0 +1,981 @@
++from __future__ import annotations
++
++from typing import Any, Callable
++
++import pandas as pd
++import plotly.express as px
++import streamlit as st
++from streamlit_plotly_events import plotly_events
++
++from src.debug_tools import render_geo_debug_panel, should_debug_map_click
++from src.glossary import get_tooltip
++from src.province_utils import canonical_province
++from src.ui_map import (
++    build_geo_quality_summary,
++    build_map_cached,
++    load_geojson_source,
++    should_accept_map_click,
++)
++from src.ui_sections import render_province_drilldown
++from src.ui_theme import get_category_theme
++
++
++def resolve_clicked_province_from_plotly_event(
++    selected_points: list[dict[str, Any]] | None,
++    figure: Any,
++    matched_df: pd.DataFrame,
++) -> str | None:
++    if not selected_points:
++        return None
++
++    point = selected_points[0] or {}
++    curve_number = point.get("curveNumber")
++    point_index = point.get("pointIndex")
++
++    if not isinstance(curve_number, int) or not isinstance(point_index, int):
++        return None
++
++    try:
++        trace = figure.data[curve_number]
++    except Exception:
++        return None
++
++    customdata = getattr(trace, "customdata", None)
++    if customdata is not None:
++        try:
++            item = customdata[point_index]
++            if isinstance(item, str):
++                candidate = item.strip()
++                if candidate:
++                    return candidate
++            if isinstance(item, (list, tuple)) and len(item) > 0:
++                candidate = str(item[0]).strip()
++                if candidate:
++                    return candidate
++        except Exception:
++            pass
++
++    locations = getattr(trace, "locations", None)
++    if locations is not None:
++        try:
++            geo_name = str(locations[point_index]).strip()
++            if geo_name and not matched_df.empty:
++                match = matched_df.loc[
++                    matched_df["geo_match_name"].astype(str).str.strip() == geo_name,
++                    "provincia",
++                ]
++                if not match.empty:
++                    return str(match.iloc[0]).strip()
++        except Exception:
++            pass
++
++    return None
++
++
++def _normalize_text_value(value: Any) -> str:
++    return str(value or "").strip()
++
++
++def _canonical_value(value: Any) -> str:
++    raw = _normalize_text_value(value)
++    if not raw:
++        return ""
++    try:
++        return canonical_province(raw)
++    except Exception:
++        return raw.casefold()
++
++
++def filter_geojson_for_focus(
++    geojson: dict,
++    geo_match_name: str | None,
++    province_name: str | None,
++) -> dict:
++    """
++    Filtra el GeoJSON para dejar únicamente la geometría de la provincia en foco.
++    """
++    features = geojson.get("features", [])
++    if not features:
++        return {"type": "FeatureCollection", "features": []}
++
++    geo_match_name_raw = _normalize_text_value(geo_match_name)
++    province_name_raw = _normalize_text_value(province_name)
++
++    geo_match_name_lower = geo_match_name_raw.lower()
++    province_name_lower = province_name_raw.lower()
++
++    geo_match_name_canon = _canonical_value(geo_match_name_raw)
++    province_name_canon = _canonical_value(province_name_raw)
++
++    exact_geo_match_features = []
++    exact_province_features = []
++    canonical_features = []
++
++    for feature in features:
++        props = feature.get("properties", {}) or {}
++        name_1 = _normalize_text_value(props.get("NAME_1", ""))
++        name_1_lower = name_1.lower()
++        name_1_canon = _canonical_value(name_1)
++
++        if geo_match_name_raw and name_1_lower == geo_match_name_lower:
++            exact_geo_match_features.append(feature)
++            continue
++
++        if province_name_raw and name_1_lower == province_name_lower:
++            exact_province_features.append(feature)
++            continue
++
++        if (
++            geo_match_name_canon
++            and name_1_canon
++            and name_1_canon == geo_match_name_canon
++        ) or (
++            province_name_canon
++            and name_1_canon
++            and name_1_canon == province_name_canon
++        ):
++            canonical_features.append(feature)
++
++    if exact_geo_match_features:
++        selected = exact_geo_match_features
++    elif exact_province_features:
++        selected = exact_province_features
++    else:
++        selected = canonical_features
++
++    return {
++        "type": "FeatureCollection",
++        "features": selected,
++    }
++
++
++def _resolve_focus_feature_name(focus_geojson: dict) -> str | None:
++    features = focus_geojson.get("features", [])
++    if not features:
++        return None
++
++    try:
++        props = features[0].get("properties", {}) or {}
++        name_1 = _normalize_text_value(props.get("NAME_1", ""))
++        return name_1 or None
++    except Exception:
++        return None
++
++
++def build_focus_map_figure(
++    focus_df: pd.DataFrame,
++    focus_geojson: dict,
++    metric_column: str,
++) -> Any:
++    """
++    Construye un mapa focalizado solo con la provincia seleccionada.
++    """
++    if focus_df.empty or not focus_geojson.get("features"):
++        return None
++
++    focus_feature_name = _resolve_focus_feature_name(focus_geojson)
++    if not focus_feature_name:
++        return None
++
++    plot_df = focus_df.head(1).copy()
++    plot_df["focus_location_name"] = focus_feature_name
++
++    plot_df["hover_score_riesgo"] = pd.to_numeric(
++        plot_df.get("score_riesgo"),
++        errors="coerce",
++    ).map(lambda x: f"{x:.3f}" if pd.notna(x) else "N/D")
++
++    plot_df["hover_pred_fallecidos_next"] = pd.to_numeric(
++        plot_df.get("pred_fallecidos_next"),
++        errors="coerce",
++    ).map(lambda x: f"{x:.2f}" if pd.notna(x) else "N/D")
++
++    plot_df["hover_delta_abs"] = pd.to_numeric(
++        plot_df.get("delta_abs"),
++        errors="coerce",
++    ).map(lambda x: f"{x:+.2f}" if pd.notna(x) else "N/D")
++
++    plot_df["hover_categoria"] = (
++        plot_df.get("categoria", pd.Series(index=plot_df.index))
++        .astype(str)
++        .replace({"": "N/D"})
++    )
++
++    plot_df["hover_ranking_posicion"] = pd.to_numeric(
++        plot_df.get("ranking_posicion"),
++        errors="coerce",
++    ).map(lambda x: f"#{int(x)}" if pd.notna(x) else "N/D")
++
++    if metric_column == "categoria":
++        category_rank_map = {
++            "Seguimiento rutinario": 1,
++            "Vigilancia preventiva": 2,
++            "Alta prioridad": 3,
++            "N/D": 0,
++        }
++        plot_df["_focus_color_value"] = (
++            plot_df["categoria"].astype(str).map(category_rank_map).fillna(0)
++        )
++        color_col = "_focus_color_value"
++    else:
++        color_col = metric_column
++
++    fig = px.choropleth(
++        plot_df,
++        geojson=focus_geojson,
++        locations="focus_location_name",
++        featureidkey="properties.NAME_1",
++        color=color_col,
++        hover_name="provincia",
++        custom_data=[
++            "provincia",
++            "hover_score_riesgo",
++            "hover_pred_fallecidos_next",
++            "hover_delta_abs",
++            "hover_categoria",
++            "hover_ranking_posicion",
++        ],
++    )
++
++    fig.update_geos(
++        fitbounds="geojson",
++        visible=False,
++        showcountries=False,
++        showcoastlines=False,
++        showland=False,
++        showframe=False,
++        bgcolor="rgba(0,0,0,0)",
++    )
++
++    fig.update_traces(
++        marker_line_width=1.8,
++        marker_line_color="rgba(255,255,255,0.92)",
++        showscale=False,
++        hovertemplate=(
++            "<b>%{customdata[0]}</b><br>"
++            "Score de riesgo: %{customdata[1]}<br>"
++            "Predicción siguiente: %{customdata[2]}<br>"
++            "Δ abs.: %{customdata[3]}<br>"
++            "Categoría DSS: %{customdata[4]}<br>"
++            "Posición: %{customdata[5]}"
++            "<extra></extra>"
++        ),
++    )
++
++    fig.update_layout(
++        margin=dict(l=0, r=0, t=0, b=0),
++        height=360,
++        paper_bgcolor="rgba(0,0,0,0)",
++        plot_bgcolor="rgba(0,0,0,0)",
++        uirevision="focus-map",
++        coloraxis_showscale=False,
++    )
++
++    return fig
++
++
++def _build_normalized_map_dataframe(
++    filtered_ranking: pd.DataFrame,
++    metric_column: str,
++    normalize_visual_scale: bool,
++) -> tuple[pd.DataFrame, str, str]:
++    """
++    Devuelve:
++    - dataframe a mostrar en el mapa,
++    - columna real usada para color,
++    - etiqueta amigable para la variable.
++    """
++    map_df = filtered_ranking.copy()
++
++    friendly_labels = {
++        "categoria": "Categoría DSS",
++        "score_riesgo": "Score de riesgo",
++        "fallecidos_actuales": "Fallecidos actuales",
++        "pred_fallecidos_next": "Predicción próxima",
++        "delta_pct": "Delta %",
++    }
++
++    metric_label = friendly_labels.get(metric_column, metric_column.replace("_", " ").title())
++
++    if metric_column == "categoria":
++        return map_df, "categoria", metric_label
++
++    if metric_column == "delta_pct":
++        return map_df, "delta_pct", metric_label
++
++    if not normalize_visual_scale:
++        return map_df, metric_column, metric_label
++
++    numeric_values = pd.to_numeric(map_df[metric_column], errors="coerce")
++    temp_col = f"{metric_label} (normalizado)"
++
++    if numeric_values.notna().any():
++        vmin = float(numeric_values.min())
++        vmax = float(numeric_values.max())
++
++        if vmin == vmax:
++            map_df[temp_col] = 1.0
++        else:
++            map_df[temp_col] = (numeric_values - vmin) / (vmax - vmin)
++    else:
++        map_df[temp_col] = 0.0
++
++    return map_df, temp_col, f"{metric_label} (normalizado)"
++
++
++def _build_map_insight(
++    filtered_ranking: pd.DataFrame,
++    metric_column: str,
++    metric_label: str,
++    selected_year_label: str,
++    selected_years: list[int],
++    show_top_only: bool,
++    top_n: int,
++    normalize_visual_scale: bool,
++) -> str:
++    if filtered_ranking.empty:
++        return "No hay suficientes datos visibles para generar un insight automático del mapa."
++
++    ranking = filtered_ranking.copy()
++
++    if "categoria" in ranking.columns:
++        ranking["categoria"] = ranking["categoria"].astype(str).fillna("N/D")
++
++    top_row = ranking.iloc[0]
++    provincia_lider = str(top_row.get("provincia", "N/D"))
++    categoria_lider = str(top_row.get("categoria", "N/D"))
++
++    intro = (
++        f"Período visible: {selected_year_label}. "
++        f"La provincia que lidera el ranking actual es {provincia_lider}, "
++        f"clasificada en {categoria_lider}."
++    )
++
++    if metric_column == "categoria":
++        counts = ranking["categoria"].value_counts(dropna=False)
++        alta = int(counts.get("Alta prioridad", 0))
++        vigilancia = int(counts.get("Vigilancia preventiva", 0))
++        rutina = int(counts.get("Seguimiento rutinario", 0))
++
++        body = (
++            f"En la salida DSS se observan {alta} provincias en alta prioridad, "
++            f"{vigilancia} en vigilancia preventiva y {rutina} en seguimiento rutinario."
++        )
++    else:
++        values = pd.to_numeric(ranking.get(metric_column), errors="coerce").dropna()
++
++        if values.empty:
++            body = (
++                f"La variable seleccionada ({metric_label}) no presenta valores suficientes "
++                "para interpretar contraste territorial."
++            )
++        else:
++            values_abs = values.abs()
++            total_abs = float(values_abs.sum()) if float(values_abs.sum()) > 0 else 0.0
++            top3_abs = float(values_abs.head(min(3, len(values_abs))).sum()) if not values_abs.empty else 0.0
++
++            concentration = (top3_abs / total_abs) if total_abs > 0 else 0.0
++
++            if concentration >= 0.45:
++                pattern = "alta concentración territorial"
++            elif concentration >= 0.30:
++                pattern = "concentración intermedia"
++            else:
++                pattern = "distribución relativamente difusa"
++
++            if metric_column == "delta_pct":
++                positivos = int((values > 0).sum())
++                negativos = int((values < 0).sum())
++                body = (
++                    f"La variable {metric_label} muestra {pattern}. "
++                    f"Se identifican {positivos} provincias con incremento relativo y "
++                    f"{negativos} con reducción relativa."
++                )
++            else:
++                max_value = float(values.max())
++                min_value = float(values.min())
++                body = (
++                    f"La variable {metric_label} presenta {pattern}. "
++                    f"El rango visible va desde {min_value:.2f} hasta {max_value:.2f}."
++                )
++
++    temporal_text = ""
++
++    is_multi_year = len(selected_years) > 1
++    if is_multi_year and "delta_pct" in ranking.columns:
++        delta_series = pd.to_numeric(ranking["delta_pct"], errors="coerce").dropna()
++
++        if not delta_series.empty:
++            fuertes_alzas = int((delta_series >= 20).sum())
++            fuertes_bajas = int((delta_series <= -20).sum())
++
++            delta_num = pd.to_numeric(ranking["delta_pct"], errors="coerce")
++            top_up = ranking.loc[delta_num.fillna(float("-inf")).idxmax()]
++            top_down = ranking.loc[delta_num.fillna(float("inf")).idxmin()]
++
++            max_up = float(pd.to_numeric(top_up.get("delta_pct"), errors="coerce"))
++            max_down = float(pd.to_numeric(top_down.get("delta_pct"), errors="coerce"))
++
++            if fuertes_alzas == 0 and fuertes_bajas == 0:
++                temporal_text = (
++                    " En la comparación entre años visibles no se observan cambios relativos "
++                    "de gran magnitud; el patrón territorial luce relativamente estable."
++                )
++            else:
++                temporal_parts: list[str] = []
++
++                if fuertes_alzas > 0:
++                    temporal_parts.append(
++                        f"{fuertes_alzas} provincias muestran aumentos relevantes "
++                        f"(≥ 20%), destacándose {top_up.get('provincia', 'N/D')} "
++                        f"con {max_up:.2f}%"
++                    )
++
++                if fuertes_bajas > 0:
++                    temporal_parts.append(
++                        f"{fuertes_bajas} provincias muestran reducciones relevantes "
++                        f"(≤ -20%), destacándose {top_down.get('provincia', 'N/D')} "
++                        f"con {max_down:.2f}%"
++                    )
++
++                temporal_text = (
++                    " En perspectiva temporal, "
++                    + "; ".join(temporal_parts)
++                    + "."
++                )
++
++    context = (
++        f"El mapa está mostrando solo el Top-{top_n} visible."
++        if show_top_only
++        else "El mapa está mostrando todas las provincias visibles según los filtros activos."
++    )
++
++    if normalize_visual_scale and metric_column not in {"categoria", "delta_pct"}:
++        context += " La escala visual fue normalizada para resaltar diferencias relativas."
++
++    return f"{intro} {body}{temporal_text} {context}"
++
++
++def _render_comparison_panel(
++    filtered_ranking: pd.DataFrame,
++    focus_province: str,
++    compare_province: str,
++) -> None:
++    if not focus_province or not compare_province or focus_province == compare_province:
++        return
++
++    left_df = filtered_ranking[filtered_ranking["provincia"] == focus_province].copy()
++    right_df = filtered_ranking[filtered_ranking["provincia"] == compare_province].copy()
++
++    if left_df.empty or right_df.empty:
++        return
++
++    left = left_df.iloc[0]
++    right = right_df.iloc[0]
++
++    st.markdown("### Comparación provincial")
++
++    c1, c2 = st.columns(2)
++
++    with c1:
++        st.markdown(f"**{focus_province}**")
++        st.metric("Score de riesgo", f"{float(left['score_riesgo']):.3f}")
++        st.metric("Predicción próxima", f"{float(left['pred_fallecidos_next']):.2f}")
++        st.metric("Δ abs.", f"{float(pd.to_numeric(left.get('delta_abs', 0.0), errors='coerce')):+.2f}")
++        st.metric(
++            "Posición",
++            "N/D" if pd.isna(left.get("ranking_posicion")) else f"#{int(left['ranking_posicion'])}",
++        )
++        st.caption(f"Categoría DSS: {left.get('categoria', 'N/D')}")
++
++    with c2:
++        st.markdown(f"**{compare_province}**")
++        st.metric("Score de riesgo", f"{float(right['score_riesgo']):.3f}")
++        st.metric("Predicción próxima", f"{float(right['pred_fallecidos_next']):.2f}")
++        st.metric("Δ abs.", f"{float(pd.to_numeric(right.get('delta_abs', 0.0), errors='coerce')):+.2f}")
++        st.metric(
++            "Posición",
++            "N/D" if pd.isna(right.get("ranking_posicion")) else f"#{int(right['ranking_posicion'])}",
++        )
++        st.caption(f"Categoría DSS: {right.get('categoria', 'N/D')}")
++
++    score_diff = float(left["score_riesgo"]) - float(right["score_riesgo"])
++    pred_diff = float(left["pred_fallecidos_next"]) - float(right["pred_fallecidos_next"])
++
++    if score_diff > 0:
++        lead_text = f"{focus_province} presenta mayor intensidad relativa de riesgo."
++    elif score_diff < 0:
++        lead_text = f"{compare_province} presenta mayor intensidad relativa de riesgo."
++    else:
++        lead_text = "Ambas provincias presentan intensidad relativa de riesgo equivalente."
++
++    st.markdown(
++        f"""
++        <div style="
++            border-radius: 12px;
++            padding: 12px 14px;
++            margin-top: 6px;
++            border: 1px solid rgba(148, 163, 184, 0.18);
++            background: rgba(30, 41, 59, 0.35);
++        ">
++            <strong>Lectura comparativa:</strong>
++            {lead_text}
++            Diferencia de score: <strong>{score_diff:+.3f}</strong>.
++            Diferencia de predicción próxima: <strong>{pred_diff:+.2f}</strong>.
++        </div>
++        """,
++        unsafe_allow_html=True,
++    )
++
++
++def render_map_section(
++    *,
++    geo_mode: str,
++    geo_local_path: str,
++    uploaded_geo: Any,
++    filtered_ranking: pd.DataFrame,
++    metric_column: str,
++    selected_year_label: str,
++    show_top_only: bool,
++    top_n: int,
++    province_options: list[str],
++    scored_df: pd.DataFrame,
++    selected_years: list[int],
++    set_selected_province_fn: Callable[[str | None], bool],
++    build_rule_trace_text_fn: Callable[[pd.Series], str],
++    build_recommendation_text_fn: Callable[[pd.Series], str],
++) -> None:
++    if geo_mode == "Omitir mapa":
++        st.info("Mapa omitido.")
++        return
++
++    try:
++        geo_source = load_geojson_source(
++            geo_mode=geo_mode,
++            geo_local_path=geo_local_path,
++            uploaded_geo=uploaded_geo,
++        )
++
++        if geo_source is None:
++            st.info("Sube un archivo GeoJSON.")
++            return
++
++        normalize_visual_scale = st.checkbox(
++            "Normalización visual opcional",
++            value=False,
++            key="normalize_visual_scale_map",
++            help=(
++                "Reescala visualmente la variable numérica entre 0 y 1 para resaltar "
++                "diferencias relativas entre provincias. No altera el ranking ni los valores reales. "
++                "No se aplica a Categoría DSS ni a Delta %."
++            ),
++        )
++
++        map_display_df, map_color_col, map_metric_label = _build_normalized_map_dataframe(
++            filtered_ranking=filtered_ranking,
++            metric_column=metric_column,
++            normalize_visual_scale=normalize_visual_scale,
++        )
++
++        selected_province = st.session_state.get("selected_province")
++
++        map_result = build_map_cached(
++            df_map=map_display_df,
++            geo_source=geo_source,
++            color_col=map_color_col,
++            title=f"Mapa nacional por provincia - {selected_year_label}",
++            selected_province=selected_province,
++        )
++
++        left_map_col, right_focus_col = st.columns([1.45, 1.15])
++
++        with left_map_col:
++            with st.container(border=True):
++                st.markdown("### Vista nacional")
++                st.caption(
++                    f"Distribución espacial de la variable seleccionada: {map_metric_label}."
++                )
++
++                figure = map_result["figure"]
++                selected_points = plotly_events(
++                    figure,
++                    click_event=True,
++                    select_event=False,
++                    hover_event=False,
++                    override_height=620,
++                    key=(
++                        f"plotly_click_map_{selected_year_label}_{metric_column}_"
++                        f"{show_top_only}_{top_n}_{len(province_options)}_"
++                        f"{normalize_visual_scale}"
++                    ),
++                )
++
++                clicked_province = resolve_clicked_province_from_plotly_event(
++                    selected_points=selected_points,
++                    figure=figure,
++                    matched_df=map_result["matched_df"],
++                )
++
++                if clicked_province:
++                    clicked_province = str(clicked_province).strip()
++
++                normalized_options = {str(p).strip(): p for p in province_options}
++
++                if clicked_province in normalized_options:
++                    clicked_province = normalized_options[clicked_province]
++                else:
++                    clicked_province = None
++
++                debug_map_click = should_debug_map_click()
++
++                if debug_map_click:
++                    st.write("selected_points:", selected_points)
++                    st.write("clicked_province:", clicked_province)
++
++                if clicked_province and should_accept_map_click(clicked_province):
++                    current_selected = st.session_state.get("selected_province")
++                    if str(current_selected).strip() != str(clicked_province).strip():
++                        if set_selected_province_fn(clicked_province):
++                            st.rerun()
++
++                if debug_map_click:
++                    with st.expander("Debug del clic del mapa", expanded=False):
++                        st.write("selected_points:", selected_points)
++                        st.write("clicked_province:", clicked_province)
++                        st.write("province_options:", province_options)
++                        matched_preview = map_result["matched_df"].copy()
++                        debug_cols = [
++                            col
++                            for col in [
++                                "provincia",
++                                "provincia_canon",
++                                "geo_match_name",
++                                map_color_col,
++                            ]
++                            if col in matched_preview.columns
++                        ]
++                        if debug_cols:
++                            st.dataframe(
++                                matched_preview[debug_cols],
++                                width="stretch",
++                            )
++                        else:
++                            st.dataframe(
++                                matched_preview.head(10),
++                                width="stretch",
++                            )
++
++                coverage, unmatched_count = build_geo_quality_summary(
++                    base_ranking_df=filtered_ranking,
++                    unmatched_provinces=map_result.get("unmatched_provinces", []),
++                )
++
++                q1, q2 = st.columns(2)
++                q1.metric("Cobertura geográfica", f"{coverage:.2f}%")
++                q2.metric("Provincias sin match", unmatched_count)
++
++                unmatched_provinces = map_result.get("unmatched_provinces", [])
++                if unmatched_provinces:
++                    st.warning(
++                        "Provincias sin correspondencia en el GeoJSON: "
++                        f"{unmatched_provinces}"
++                    )
++
++                render_geo_debug_panel(
++                    coverage=coverage,
++                    unmatched_count=unmatched_count,
++                    unmatched_provinces=unmatched_provinces,
++                    matched_df=map_result["matched_df"],
++                    metric_column=map_color_col,
++                )
++
++                map_insight = _build_map_insight(
++                    filtered_ranking=filtered_ranking,
++                    metric_column=metric_column,
++                    metric_label=map_metric_label,
++                    selected_year_label=selected_year_label,
++                    selected_years=selected_years,
++                    show_top_only=show_top_only,
++                    top_n=top_n,
++                    normalize_visual_scale=normalize_visual_scale,
++                )
++
++                st.markdown(
++                    f"""
++                    <div style="
++                        border-radius: 12px;
++                        padding: 12px 14px;
++                        margin-top: 8px;
++                        border: 1px solid rgba(148, 163, 184, 0.18);
++                        background: rgba(30, 41, 59, 0.32);
++                    ">
++                        <strong>Insight automático del mapa:</strong> {map_insight}
++                    </div>
++                    """,
++                    unsafe_allow_html=True,
++                )
++
++                st.caption(
++                    "Haz clic sobre una provincia en el mapa nacional para actualizar la vista focalizada y dejarla marcada."
++                )
++
++        with right_focus_col:
++            with st.container(border=True):
++                st.markdown("### Vista focalizada")
++                st.caption(
++                    "Detalle ejecutivo de la provincia actualmente seleccionada."
++                )
++
++                current_selected = st.session_state.get("selected_province")
++                if current_selected not in province_options and province_options:
++                    current_selected = province_options[0]
++                    st.session_state["selected_province"] = current_selected
++
++                if st.session_state.get("province_focus_selectbox") != current_selected:
++                    st.session_state["province_focus_selectbox"] = current_selected
++
++                province_from_ui = st.selectbox(
++                    "Provincia en foco",
++                    options=province_options,
++                    key="province_focus_selectbox",
++                )
++
++                if province_from_ui != st.session_state.get("selected_province"):
++                    if set_selected_province_fn(province_from_ui):
++                        st.rerun()
++
++                clear_selection = st.button(
++                    "Restablecer foco",
++                    width="stretch",
++                    key="clear_province_selection",
++                )
++                if clear_selection and province_options:
++                    default_focus = province_options[0]
++                    if set_selected_province_fn(default_focus):
++                        st.rerun()
++
++                comparison_enabled = st.checkbox(
++                    "Modo comparación",
++                    value=False,
++                    key="comparison_mode_enabled",
++                )
++
++                compare_province = None
++                if comparison_enabled:
++                    compare_candidates = [
++                        p for p in province_options
++                        if p != st.session_state.get("selected_province")
++                    ]
++                    if compare_candidates:
++                        compare_province = st.selectbox(
++                            "Provincia a comparar",
++                            options=compare_candidates,
++                            key="province_compare_selectbox",
++                        )
++
++                selected_focus_name = st.session_state.get("selected_province")
++
++                focus_df = filtered_ranking[
++                    filtered_ranking["provincia"] == selected_focus_name
++                ].copy()
++
++                if focus_df.empty and province_options:
++                    fallback_province = province_options[0]
++                    set_selected_province_fn(fallback_province)
++                    focus_df = filtered_ranking[
++                        filtered_ranking["provincia"] == fallback_province
++                    ].copy()
++                    selected_focus_name = fallback_province
++
++                geo_match_name = None
++                if not focus_df.empty and "geo_match_name" in focus_df.columns:
++                    geo_match_name = str(focus_df.iloc[0].get("geo_match_name", "")).strip()
++
++                focus_geojson = filter_geojson_for_focus(
++                    geojson=geo_source,
++                    geo_match_name=geo_match_name,
++                    province_name=selected_focus_name,
++                )
++
++                st.markdown(
++                    f"<div style='margin-bottom:6px; font-weight:600;'>"
++                    f"Provincia en foco - {selected_focus_name} ({selected_year_label})"
++                    f"</div>",
++                    unsafe_allow_html=True,
++                )
++
++                st.markdown(
++                    """
++                    <style>
++                    div[data-testid="stPlotlyChart"] {
++                        animation: fadeFocusIn 0.25s ease-in-out;
++                    }
++
++                    @keyframes fadeFocusIn {
++                        from {
++                            opacity: 0.35;
++                            transform: translateY(4px);
++                        }
++                        to {
++                            opacity: 1;
++                            transform: translateY(0);
++                        }
++                    }
++                    </style>
++                    """,
++                    unsafe_allow_html=True,
++                )
++
++                focus_figure = build_focus_map_figure(
++                    focus_df=focus_df,
++                    focus_geojson=focus_geojson,
++                    metric_column=metric_column,
++                )
++
++                focus_chart_placeholder = st.empty()
++
++                if focus_figure is not None:
++                    with focus_chart_placeholder.container():
++                        with st.spinner("Actualizando vista focalizada..."):
++                            st.plotly_chart(
++                                focus_figure,
++                                width="stretch",
++                                config={"displaylogo": False},
++                                key=(
++                                    f"focus_map_{selected_focus_name}_"
++                                    f"{selected_year_label}_{metric_column}"
++                                ),
++                            )
++                else:
++                    with focus_chart_placeholder.container():
++                        st.info(
++                            "No fue posible construir el mapa focalizado con la provincia seleccionada. "
++                            "Se mantienen las métricas y la trazabilidad."
++                        )
++
++                    if should_debug_map_click():
++                        with st.expander("Debug de vista focalizada", expanded=False):
++                            st.write("selected_focus_name:", selected_focus_name)
++                            st.write("geo_match_name:", geo_match_name)
++                            st.write(
++                                "selected_focus_canon:",
++                                _canonical_value(selected_focus_name),
++                            )
++                            geo_names = [
++                                str(
++                                    (feature.get("properties", {}) or {}).get("NAME_1", "")
++                                ).strip()
++                                for feature in geo_source.get("features", [])
++                            ]
++                            debug_df = pd.DataFrame(
++                                {
++                                    "NAME_1": geo_names,
++                                    "NAME_1_canon": [
++                                        _canonical_value(name) for name in geo_names
++                                    ],
++                                }
++                            )
++                            st.dataframe(debug_df, width="stretch")
++
++                if not focus_df.empty:
++                    province_row = focus_df.iloc[0]
++
++                    categoria = str(province_row.get("categoria", "N/D")).strip() or "N/D"
++                    badge = get_category_theme(categoria)
++
++                    st.markdown(
++                        f"""
++                        <div style="margin-bottom: 10px;">
++                            <div style="font-size: 2rem; font-weight: 700; line-height: 1.1; margin-bottom: 10px;">
++                                {province_row['provincia']}
++                            </div>
++                            <div style="
++                                display: inline-block;
++                                padding: 8px 12px;
++                                border-radius: 999px;
++                                border: 1px solid {badge['border']};
++                                background: {badge['badge_bg']};
++                                color: {badge['badge_text']};
++                                font-weight: 600;
++                                font-size: 0.95rem;
++                            ">
++                                {badge['label']}
++                            </div>
++                        </div>
++                        """,
++                        unsafe_allow_html=True,
++                    )
++
++                    st.caption(get_tooltip("Categoría DSS"))
++
++                    m1, m2 = st.columns(2)
++                    m3, m4 = st.columns(2)
++
++                    m1.metric(
++                        "Score actual",
++                        f"{float(province_row['score_riesgo']):.3f}",
++                        help=get_tooltip("Score actual"),
++                    )
++
++                    m2.metric(
++                        "Predicción próxima",
++                        f"{float(province_row['pred_fallecidos_next']):.2f}",
++                        help=get_tooltip("Predicción próxima"),
++                    )
++
++                    delta_abs = float(
++                        pd.to_numeric(province_row.get("delta_abs", 0.0), errors="coerce")
++                    )
++                    m3.metric(
++                        "Δ abs.",
++                        f"{delta_abs:+.2f}",
++                        help=get_tooltip("Δ abs."),
++                    )
++
++                    ranking_pos = province_row.get("ranking_posicion", None)
++                    ranking_text = "N/D" if pd.isna(ranking_pos) else f"#{int(ranking_pos)}"
++                    m4.metric(
++                        "Posición",
++                        ranking_text,
++                        help=get_tooltip("Posición"),
++                    )
++
++                    if comparison_enabled and compare_province:
++                        _render_comparison_panel(
++                            filtered_ranking=filtered_ranking,
++                            focus_province=selected_focus_name,
++                            compare_province=compare_province,
++                        )
++
++                    with st.container(border=True):
++                        st.markdown("**Trazabilidad de la decisión**")
++
++                        regla_text = str(province_row.get("regla_aplicada", "")).strip()
++                        just_text = str(province_row.get("justificacion_regla", "")).strip()
++                        rec_text = str(province_row.get("recomendacion", "")).strip()
++
++                        if regla_text:
++                            st.write(f"**Regla aplicada:** {regla_text}")
++
++                        if just_text:
++                            st.write(f"**Justificación:** {just_text}")
++                        else:
++                            st.write(build_rule_trace_text_fn(province_row))
++
++                        if rec_text:
++                            st.write(f"**Recomendación:** {rec_text}")
++                        else:
++                            st.write(build_recommendation_text_fn(province_row))
++
++        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
++        st.markdown("---")
++
++        drill_year = int(max(selected_years))
++        render_province_drilldown(
++            scored_df=scored_df[scored_df["year"].isin(selected_years)].copy(),
++            province_name=st.session_state["selected_province"],
++            selected_year=drill_year,
++        )
++
++    except Exception as exc:
++        st.warning(f"No fue posible generar el mapa: {exc}")
+\ No newline at end of file
+diff --git a/src/ui_overview.py b/src/ui_overview.py
+new file mode 100644
+index 0000000..0fd2401
+--- /dev/null
++++ b/src/ui_overview.py
+@@ -0,0 +1,72 @@
++from __future__ import annotations
++
++from typing import Callable
++
++import pandas as pd
++import streamlit as st
++
++from src.ui_sections import render_kpi_summary
++from src.ui_summary import render_decision_engine_summary
++from src.ui_topk import render_topk_preview
++
++
++def render_overview_section(
++    filtered_ranking: pd.DataFrame,
++    metric_column: str,
++    results: dict,
++    selected_year: int,
++    geo_mode: str,
++    metricas_df: pd.DataFrame,
++    top_n: int,
++    selected_year_label: str,
++    set_selected_province_fn: Callable[[str | None], bool],
++    show_dss_trace: bool,
++) -> bool:
++    """
++    Renderiza el bloque superior de la app:
++    - Resumen ejecutivo
++    - Vista DSS resumida
++    - Exploración territorial (entrada a mapa y drill-down)
++
++    Devuelve True si hubo clic en Top-K y se requiere rerun.
++    """
++    st.markdown("## Resumen ejecutivo")
++    st.caption(
++        "Síntesis general del estado del sistema a partir de la información disponible."
++    )
++
++    render_kpi_summary(
++        filtered_ranking=filtered_ranking,
++        metric_column=metric_column,
++        results=results,
++        selected_year=selected_year,
++        geo_mode=geo_mode,
++    )
++
++    topk_clicked = False
++
++    if show_dss_trace:
++        st.markdown("## Trazabilidad DSS")
++        st.caption(
++            "Lectura resumida del motor de decisión y acceso rápido al Top-K priorizado."
++        )
++
++        render_decision_engine_summary(
++            filtered_ranking=filtered_ranking,
++            metricas_df=metricas_df,
++            top_n=top_n,
++            selected_year_label=selected_year_label,
++        )
++
++        topk_clicked = render_topk_preview(
++            filtered_ranking=filtered_ranking,
++            top_n=top_n,
++            set_selected_province_fn=set_selected_province_fn,
++        )
++
++    st.markdown("## Exploración territorial")
++    st.caption(
++        "Consulta la distribución espacial del riesgo y profundiza en una provincia específica."
++    )
++
++    return topk_clicked
+\ No newline at end of file
+diff --git a/src/ui_ranking_section.py b/src/ui_ranking_section.py
+new file mode 100644
+index 0000000..df90d99
+--- /dev/null
++++ b/src/ui_ranking_section.py
+@@ -0,0 +1,25 @@
++from __future__ import annotations
++
++import pandas as pd
++import streamlit as st
++
++from src.ui_sections import render_ranking_tab
++
++
++def render_ranking_section(
++    filtered_ranking: pd.DataFrame,
++    top_n: int,
++    show_dss_trace: bool,
++) -> None:
++    """
++    Encapsula la vista de ranking con su encabezado contextual.
++    """
++    if show_dss_trace:
++        st.markdown("### Lectura operativa del ranking")
++        st.caption(
++            "El ranking no representa solo una ordenacion visual. "
++            "Expresa la salida final del DSS despues de combinar el score predictivo "
++            "con la logica de reglas explicitas."
++        )
++
++    render_ranking_tab(filtered_ranking=filtered_ranking, top_n=top_n)
+\ No newline at end of file
+diff --git a/src/ui_sections.py b/src/ui_sections.py
+index 3dbfe6c..d88dff2 100644
+--- a/src/ui_sections.py
++++ b/src/ui_sections.py
+@@ -1,5 +1,7 @@
+ from __future__ import annotations
+ 
++import html
++import re
+ from typing import Any
+ 
+ import pandas as pd
+@@ -8,13 +10,13 @@ import plotly.graph_objects as go
+ import streamlit as st
+ 
+ from src.exporter import to_csv_bytes, to_excel_bytes
+-
+-FULL_WIDTH = "stretch"
++from src.glossary import get_tooltip
+ 
+ CATEGORY_COLOR_MAP = {
+-    "Alta": "#e74c3c",
+-    "Media": "#d4c61c",
+-    "Baja": "#48c774",
++    "Alta prioridad": "#e74c3c",
++    "Vigilancia preventiva": "#f39c12",
++    "Seguimiento rutinario": "#2ecc71",
++    "N/D": "#bdc3c7",
+ }
+ 
+ 
+@@ -51,12 +53,16 @@ def _normalize_category_value(value: Any) -> str:
+ 
+     text = str(value).strip().lower()
+     mapping = {
+-        "alta": "Alta",
+-        "alto": "Alta",
+-        "media": "Media",
+-        "medio": "Media",
+-        "baja": "Baja",
+-        "bajo": "Baja",
++        "alta prioridad": "Alta prioridad",
++        "alta": "Alta prioridad",
++        "alto": "Alta prioridad",
++        "vigilancia preventiva": "Vigilancia preventiva",
++        "media": "Vigilancia preventiva",
++        "medio": "Vigilancia preventiva",
++        "media-alta": "Vigilancia preventiva",
++        "seguimiento rutinario": "Seguimiento rutinario",
++        "baja": "Seguimiento rutinario",
++        "bajo": "Seguimiento rutinario",
+     }
+     return mapping.get(text, str(value))
+ 
+@@ -64,23 +70,367 @@ def _normalize_category_value(value: Any) -> str:
+ def _category_rank(value: Any) -> int:
+     text = str(value).strip().lower()
+     mapping = {
++        "alta prioridad": 3,
+         "alta": 3,
+         "alto": 3,
++        "vigilancia preventiva": 2,
+         "media": 2,
+         "medio": 2,
++        "media-alta": 2,
++        "seguimiento rutinario": 1,
+         "baja": 1,
+         "bajo": 1,
+     }
+     return mapping.get(text, 0)
+ 
+ 
+-def _prepare_category_column(df: pd.DataFrame, source_col: str = "categoria") -> pd.DataFrame:
++def _prepare_category_column(
++    df: pd.DataFrame,
++    source_col: str = "categoria",
++) -> pd.DataFrame:
+     prepared = df.copy()
+     if source_col in prepared.columns:
+         prepared[source_col] = prepared[source_col].apply(_normalize_category_value)
+     return prepared
+ 
+ 
++def _safe_key_part(value: Any) -> str:
++    text = "" if value is None else str(value)
++    text = text.strip().lower()
++    text = re.sub(r"\s+", "_", text)
++    text = re.sub(r"[^a-z0-9_\-]+", "", text)
++    return text or "na"
++
++
++def _build_chart_key(prefix: str, *parts: Any) -> str:
++    counter_key = "_ui_sections_chart_counter_global"
++
++    if counter_key not in st.session_state:
++        st.session_state[counter_key] = 0
++
++    st.session_state[counter_key] += 1
++    render_counter = st.session_state[counter_key]
++
++    safe_parts = [_safe_key_part(part) for part in parts]
++    return "_".join([_safe_key_part(prefix), *safe_parts, f"r{render_counter}"])
++
++
++def _build_ranking_signature(df: pd.DataFrame, top_items: int = 5) -> str:
++    if df is None or df.empty or "provincia" not in df.columns:
++        return "empty"
++    provinces = df["provincia"].dropna().astype(str).head(top_items).tolist()
++    if not provinces:
++        return "empty"
++    return "_".join(_safe_key_part(p) for p in provinces)
++
++
++def _inject_kpi_styles() -> None:
++    st.markdown(
++        """
++        <style>
++        .exec-kpi-card {
++            border-radius: 16px;
++            padding: 14px 16px 12px 16px;
++            border: 1px solid rgba(148, 163, 184, 0.18);
++            background: linear-gradient(
++                180deg,
++                rgba(15, 23, 42, 0.92) 0%,
++                rgba(15, 23, 42, 0.84) 100%
++            );
++            min-height: 128px;
++        }
++
++        .exec-kpi-label {
++            font-size: 0.84rem;
++            color: #94a3b8;
++            margin-bottom: 0.45rem;
++            font-weight: 600;
++            letter-spacing: 0.01em;
++        }
++
++        .exec-kpi-value {
++            font-size: 1.9rem;
++            line-height: 1.05;
++            font-weight: 800;
++            color: #f8fafc;
++            margin-bottom: 0.35rem;
++        }
++
++        .exec-kpi-subvalue {
++            font-size: 0.92rem;
++            font-weight: 700;
++            color: #cbd5e1;
++            margin-bottom: 0.45rem;
++        }
++
++        .exec-kpi-caption {
++            font-size: 0.83rem;
++            line-height: 1.35;
++            color: #94a3b8;
++        }
++
++        .exec-status-card {
++            border-radius: 16px;
++            padding: 14px 16px 12px 16px;
++            border: 1px solid rgba(148, 163, 184, 0.18);
++            background: linear-gradient(
++                180deg,
++                rgba(15, 23, 42, 0.92) 0%,
++                rgba(15, 23, 42, 0.84) 100%
++            );
++            min-height: 128px;
++        }
++
++        .exec-status-title {
++            font-size: 0.95rem;
++            font-weight: 800;
++            color: #f8fafc;
++            margin-bottom: 0.75rem;
++        }
++
++        .exec-status-item {
++            display: flex;
++            align-items: center;
++            gap: 8px;
++            font-size: 0.9rem;
++            color: #e2e8f0;
++            margin-bottom: 0.38rem;
++            font-weight: 600;
++        }
++
++        .exec-status-dot {
++            width: 10px;
++            height: 10px;
++            border-radius: 999px;
++            display: inline-block;
++            flex: 0 0 auto;
++        }
++
++        .exec-banner {
++            border-radius: 16px;
++            padding: 14px 16px;
++            border: 1px solid rgba(148, 163, 184, 0.18);
++            background: linear-gradient(
++                90deg,
++                rgba(30, 41, 59, 0.95) 0%,
++                rgba(15, 23, 42, 0.92) 100%
++            );
++            margin-top: 0.9rem;
++            margin-bottom: 0.9rem;
++        }
++
++        .exec-banner-title {
++            font-size: 0.9rem;
++            font-weight: 700;
++            color: #93c5fd;
++            margin-bottom: 0.25rem;
++        }
++
++        .exec-banner-text {
++            font-size: 0.88rem;
++            color: #cbd5e1;
++            line-height: 1.4;
++        }
++
++        .dss-text-desc {
++            color: rgba(255, 255, 255, 0.76);
++            font-size: 0.93rem;
++            line-height: 1.45;
++            margin-top: -4px;
++            margin-bottom: 12px;
++        }
++
++        .dss-text-analytic {
++            color: #7cc4ff;
++            font-size: 0.95rem;
++            line-height: 1.5;
++            margin-top: -2px;
++            margin-bottom: 14px;
++            font-weight: 500;
++        }
++
++        .dss-text-analytic strong {
++            color: #a8d8ff;
++            font-weight: 700;
++        }
++
++        .dss-analytic-box {
++            border-radius: 12px;
++            padding: 12px 14px;
++            margin-top: 6px;
++            margin-bottom: 14px;
++            border: 1px solid rgba(148, 163, 184, 0.18);
++            font-size: 0.94rem;
++            line-height: 1.45;
++        }
++
++        .dss-analytic-box strong {
++            font-weight: 700;
++        }
++
++        .dss-analytic-high {
++            background: rgba(231, 76, 60, 0.12);
++            border-left: 4px solid #e74c3c;
++            color: #fca5a5;
++        }
++
++        .dss-analytic-medium {
++            background: rgba(243, 156, 18, 0.12);
++            border-left: 4px solid #f39c12;
++            color: #fcd34d;
++        }
++
++        .dss-analytic-low {
++            background: rgba(46, 204, 113, 0.12);
++            border-left: 4px solid #2ecc71;
++            color: #86efac;
++        }
++
++        .dss-analytic-neutral {
++            background: rgba(148, 163, 184, 0.12);
++            border-left: 4px solid #94a3b8;
++            color: #cbd5e1;
++        }
++        </style>
++        """,
++        unsafe_allow_html=True,
++    )
++
++
++def _escape(value: Any) -> str:
++    return html.escape("" if value is None else str(value))
++
++
++def _format_int(value: Any) -> str:
++    try:
++        return f"{int(value):,}".replace(",", ".")
++    except (TypeError, ValueError):
++        return "N/D"
++
++
++def _format_float(value: Any, decimals: int = 3) -> str:
++    try:
++        return (
++            f"{float(value):,.{decimals}f}"
++            .replace(",", "X")
++            .replace(".", ",")
++            .replace("X", ".")
++        )
++    except (TypeError, ValueError):
++        return "N/D"
++
++
++def _build_exec_card_html(
++    label: str,
++    value: str,
++    subvalue: str = "",
++    caption: str = "",
++) -> str:
++    return (
++        '<div class="exec-kpi-card">'
++        f'<div class="exec-kpi-label">{_escape(label)}</div>'
++        f'<div class="exec-kpi-value">{_escape(value)}</div>'
++        f'<div class="exec-kpi-subvalue">{_escape(subvalue)}</div>'
++        f'<div class="exec-kpi-caption">{_escape(caption)}</div>'
++        "</div>"
++    )
++
++
++def _build_status_card_html(
++    dataset_loaded: bool,
++    pipeline_ok: bool,
++    ranking_ok: bool,
++    geo_mode: str,
++) -> str:
++    map_enabled = geo_mode != "Omitir mapa"
++
++    def status_row(text: str, ok: bool) -> str:
++        color = "#22c55e" if ok else "#f59e0b"
++        return (
++            '<div class="exec-status-item">'
++            f'<span class="exec-status-dot" style="background:{color};"></span>'
++            f"<span>{_escape(text)}</span>"
++            "</div>"
++        )
++
++    return (
++        '<div class="exec-status-card">'
++        '<div class="exec-status-title">Estado del sistema</div>'
++        f'{status_row("Dataset cargado", dataset_loaded)}'
++        f'{status_row("Pipeline ejecutado", pipeline_ok)}'
++        f'{status_row("Ranking disponible", ranking_ok)}'
++        f'{status_row("Mapa habilitado", map_enabled)}'
++        "</div>"
++    )
++
++
++def _render_text_desc(text: str) -> None:
++    if not str(text).strip():
++        return
++
++    st.markdown(
++        f"<div class='dss-text-desc'>{_escape(text)}</div>",
++        unsafe_allow_html=True,
++    )
++
++
++def _render_text_analytic(text: str) -> None:
++    if not str(text).strip():
++        return
++
++    st.markdown(
++        f"<div class='dss-text-analytic'>{text}</div>",
++        unsafe_allow_html=True,
++    )
++
++
++def _resolve_metric_from_results(results: dict[str, Any], *candidate_keys: str) -> Any:
++    for key in candidate_keys:
++        if key in results:
++            return results.get(key)
++    return None
++
++
++def _get_dss_color_class(categoria: str) -> str:
++    cat = str(categoria or "").strip().lower()
++
++    if "alta" in cat:
++        return "dss-analytic-high"
++    if "vigilancia" in cat or "media" in cat:
++        return "dss-analytic-medium"
++    if "seguimiento" in cat or "baja" in cat or "bajo" in cat:
++        return "dss-analytic-low"
++    return "dss-analytic-neutral"
++
++
++def _render_colored_dss_box(detail: dict[str, Any]) -> None:
++    categoria = _normalize_category_value(detail.get("categoria", "N/D"))
++    regla = str(detail.get("regla_aplicada", "")).strip() or "N/D"
++    color_class = _get_dss_color_class(categoria)
++
++    if detail.get("yoy_abs") is not None:
++        yoy_abs = float(detail["yoy_abs"])
++        if yoy_abs < 0:
++            trend_text = "Se observa una <strong>reducción interanual</strong> en el indicador."
++        elif yoy_abs > 0:
++            trend_text = "Se observa un <strong>incremento interanual</strong> en el indicador."
++        else:
++            trend_text = "No se observa <strong>variación interanual relevante</strong>."
++    else:
++        trend_text = "No hay base suficiente para estimar la <strong>variación interanual</strong>."
++
++    st.markdown(
++        (
++            f"<div class='dss-analytic-box {color_class}'>"
++            f"Clasificación actual: <strong>{categoria}</strong>. "
++            f"Regla DSS aplicada: <strong>{_escape(regla)}</strong>. "
++            f"{trend_text}"
++            f"</div>"
++        ),
++        unsafe_allow_html=True,
++    )
++
++
+ def kpi_dashboard(ranking_df: pd.DataFrame, metric_column: str) -> go.Figure:
+     if ranking_df.empty:
+         fig = go.Figure()
+@@ -88,6 +438,7 @@ def kpi_dashboard(ranking_df: pd.DataFrame, metric_column: str) -> go.Figure:
+         return fig
+ 
+     ranking = ranking_df.copy()
++    ranking = _prepare_category_column(ranking)
+ 
+     if metric_column in ranking.columns:
+         if metric_column == "categoria":
+@@ -192,20 +543,36 @@ def build_year_ranking(scored_df: pd.DataFrame, selected_year: int) -> pd.DataFr
+                 "pred_fallecidos_next",
+                 "score_riesgo",
+                 "categoria",
++                "regla_aplicada",
++                "justificacion_regla",
++                "recomendacion",
+                 "fallecidos_actuales",
+                 "delta_abs",
+                 "delta_pct",
+             ]
+         )
+ 
++    agg_dict: dict[str, Any] = {
++        "pred_fallecidos_next": ("pred_fallecidos_next", "mean"),
++        "score_riesgo": ("score_riesgo", "mean"),
++        "categoria": ("categoria", "first"),
++    }
++
++    if "regla_aplicada" in filtered.columns:
++        agg_dict["regla_aplicada"] = ("regla_aplicada", "first")
++    if "justificacion_regla" in filtered.columns:
++        agg_dict["justificacion_regla"] = ("justificacion_regla", "first")
++    if "recomendacion" in filtered.columns:
++        agg_dict["recomendacion"] = ("recomendacion", "first")
++
++    if "fallecidos_actuales" in filtered.columns:
++        agg_dict["fallecidos_actuales"] = ("fallecidos_actuales", "sum")
++    else:
++        agg_dict["fallecidos_actuales"] = ("fallecidos", "sum")
++
+     ranking = (
+         filtered.groupby("provincia", as_index=False)
+-        .agg(
+-            pred_fallecidos_next=("pred_fallecidos_next", "mean"),
+-            score_riesgo=("score_riesgo", "mean"),
+-            categoria=("categoria", "first"),
+-            fallecidos_actuales=("fallecidos", "sum"),
+-        )
++        .agg(**agg_dict)
+         .sort_values("score_riesgo", ascending=False)
+         .reset_index(drop=True)
+     )
+@@ -263,12 +630,12 @@ def build_province_detail_row(
+ 
+     explanation_parts: list[str] = []
+ 
+-    if float(current_row["score_riesgo"]) >= 0.75:
+-        explanation_parts.append("score de riesgo elevado")
+-    elif float(current_row["score_riesgo"]) >= 0.50:
+-        explanation_parts.append("score de riesgo medio-alto")
+-    else:
+-        explanation_parts.append("score de riesgo moderado")
++    categoria = _normalize_category_value(current_row.get("categoria", "N/D"))
++    explanation_parts.append(f"clasificación DSS actual: {categoria}")
++
++    regla = str(current_row.get("regla_aplicada", "")).strip()
++    if regla:
++        explanation_parts.append(f"regla aplicada: {regla}")
+ 
+     if yoy_abs is not None:
+         if yoy_abs > 0:
+@@ -278,17 +645,16 @@ def build_province_detail_row(
+         else:
+             explanation_parts.append("comportamiento estable frente al año previo")
+ 
+-    explanation_parts.append(
+-        f"clasificación actual: {_normalize_category_value(current_row['categoria'])}"
+-    )
+-
+     return {
+         "provincia": current_row["provincia"],
+         "year": int(current_row["year"]),
+         "fallecidos": current_value,
+         "pred_fallecidos_next": float(current_row["pred_fallecidos_next"]),
+         "score_riesgo": float(current_row["score_riesgo"]),
+-        "categoria": _normalize_category_value(current_row["categoria"]),
++        "categoria": categoria,
++        "regla_aplicada": str(current_row.get("regla_aplicada", "")).strip(),
++        "justificacion_regla": str(current_row.get("justificacion_regla", "")).strip(),
++        "recomendacion": str(current_row.get("recomendacion", "")).strip(),
+         "yoy_abs": yoy_abs,
+         "yoy_pct": yoy_pct,
+         "explicacion": " | ".join(explanation_parts),
+@@ -302,29 +668,171 @@ def render_kpi_summary(
+     selected_year: int,
+     geo_mode: str,
+ ) -> None:
+-    summary_left, summary_right = st.columns([2, 1])
++    _inject_kpi_styles()
++
++    ranking = filtered_ranking.copy()
++    if "categoria" in ranking.columns:
++        ranking["categoria"] = ranking["categoria"].apply(_normalize_category_value)
++
++    mae = results.get("mae")
++    r2 = results.get("r2")
++
++    visible_count = (
++        int(ranking["provincia"].nunique())
++        if not ranking.empty and "provincia" in ranking.columns
++        else 0
++    )
++
++    if not ranking.empty:
++        top_row = ranking.iloc[0]
++        leader_name = str(top_row.get("provincia", "N/D"))
++        leader_score = _format_float(top_row.get("score_riesgo"), 3)
++        leader_pred = _format_float(top_row.get("pred_fallecidos_next"), 2)
++        leader_category = _normalize_category_value(top_row.get("categoria", "N/D"))
++    else:
++        leader_name = "N/D"
++        leader_score = "N/D"
++        leader_pred = "N/D"
++        leader_category = "N/D"
++
++    c1, c2, c3, c4, c5 = st.columns(5)
++
++    with c1:
++        st.markdown(
++            _build_exec_card_html(
++                label="Año de análisis",
++                value=str(selected_year),
++                subvalue=f"{visible_count} provincias visibles",
++                caption="Contexto temporal activo para la priorización.",
++            ),
++            unsafe_allow_html=True,
++        )
++
++    with c2:
++        st.markdown(
++            _build_exec_card_html(
++                label="Provincia líder",
++                value=leader_name,
++                subvalue=leader_category,
++                caption="Territorio con mayor prioridad operativa actual.",
++            ),
++            unsafe_allow_html=True,
++        )
++
++    with c3:
++        st.markdown(
++            _build_exec_card_html(
++                label="Score líder",
++                value=leader_score,
++                subvalue="Máximo score visible",
++                caption="Intensidad relativa del riesgo en la salida actual.",
++            ),
++            unsafe_allow_html=True,
++        )
++
++    with c4:
++        st.markdown(
++            _build_exec_card_html(
++                label="Predicción líder",
++                value=leader_pred,
++                subvalue="Escenario siguiente",
++                caption="Estimación esperada para el siguiente período.",
++            ),
++            unsafe_allow_html=True,
++        )
++
++    with c5:
++        st.markdown(
++            _build_exec_card_html(
++                label="Calidad del modelo",
++                value=_format_float(mae, 3),
++                subvalue=f"R²: {_format_float(r2, 3)}",
++                caption="Indicadores globales de ajuste reportados por el pipeline.",
++            ),
++            unsafe_allow_html=True,
++        )
++
++    hitrate_at_3 = _resolve_metric_from_results(results, "HitRate@3", "hitrate_at_3")
++    hitrate_at_5 = _resolve_metric_from_results(results, "HitRate@5", "hitrate_at_5")
++    precision_at_3 = _resolve_metric_from_results(
++        results,
++        "Precision@3",
++        "precision_at_3",
++    )
++
++    top_k_visible = f"Top-{visible_count}" if visible_count > 0 else "N/D"
++
++    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
++
++    st.markdown("## Priorización DSS")
++    _render_text_desc(
++        "Resultado operativo del sistema tras combinar el score predictivo con la lógica de reglas."
++    )
++
++    st.markdown("## Motor DSS visible")
++    _render_text_desc(
++        "Secuencia operativa que transforma datos históricos en una salida priorizada interpretable."
++    )
++    _render_text_analytic(
++        (
++            f"Período analizado: <strong>{selected_year}</strong>. "
++            f"La provincia actualmente priorizada es <strong>{leader_name}</strong>, "
++            f"con score <strong>{leader_score}</strong> y categoría "
++            f"<strong>{leader_category}</strong>. "
++            f"En la evaluación de priorización, "
++            f"<strong>HitRate@3 = {_format_float(hitrate_at_3, 3)}</strong>, "
++            f"<strong>HitRate@5 = {_format_float(hitrate_at_5, 3)}</strong> y "
++            f"<strong>Precision@3 = {_format_float(precision_at_3, 3)}</strong>. "
++            f"El ranking visible utiliza <strong>{top_k_visible}</strong> según los filtros activos."
++        )
++    )
++
++    st.markdown("## Top-K priorizado")
++    _render_text_desc(
++        "Número de elementos prioritarios que el sistema devuelve como salida principal del ranking."
++    )
++    _render_text_analytic(
++        f"Configuración actual del ranking visible: <strong>{top_k_visible}</strong>."
++    )
+ 
+-    with summary_left:
+-        c1, c2, c3, c4 = st.columns(4)
+-        c1.metric("Año de análisis", selected_year)
+-        c2.metric("Provincias visibles", int(filtered_ranking["provincia"].nunique()))
+-        c3.metric("MAE", f"{results['mae']:.3f}" if results["mae"] is not None else "N/D")
+-        c4.metric("R²", f"{results['r2']:.3f}" if results["r2"] is not None else "N/D")
++    st.markdown(
++        """
++        <div class="exec-banner">
++            <div class="exec-banner-title">Lectura ejecutiva</div>
++            <div class="exec-banner-text">
++                El panel resume la situación visible del ranking actual y destaca la provincia
++                que concentra la mayor prioridad operativa bajo la configuración aplicada.
++            </div>
++        </div>
++        """,
++        unsafe_allow_html=True,
++    )
+ 
++    bottom_left, bottom_right = st.columns([2.2, 1.0])
++
++    with bottom_left:
+         st.plotly_chart(
+-            kpi_dashboard(filtered_ranking, metric_column),
+-            width=FULL_WIDTH,
++            kpi_dashboard(ranking, metric_column),
++            width="stretch",
++            key=_build_chart_key(
++                "kpi_dashboard",
++                metric_column,
++                selected_year,
++                len(ranking),
++                _build_ranking_signature(ranking),
++            ),
+         )
+ 
+-    with summary_right:
+-        st.markdown("### Estado del sistema")
+-        st.success("Dataset cargado")
+-        st.success("Pipeline ejecutado")
+-        st.success("Ranking generado")
+-        if geo_mode == "Omitir mapa":
+-            st.info("Mapa omitido por configuración")
+-        else:
+-            st.info("Mapa habilitado")
++    with bottom_right:
++        st.markdown(
++            _build_status_card_html(
++                dataset_loaded=True,
++                pipeline_ok=True,
++                ranking_ok=not ranking.empty,
++                geo_mode=geo_mode,
++            ),
++            unsafe_allow_html=True,
++        )
+ 
+ 
+ def render_province_drilldown(
+@@ -349,6 +857,8 @@ def render_province_drilldown(
+         st.info("No hay detalle disponible para la provincia seleccionada en el año filtrado.")
+         return
+ 
++    _inject_kpi_styles()
++
+     st.subheader(f"Detalle provincial: {detail['provincia']}")
+ 
+     c1, c2, c3, c4 = st.columns(4)
+@@ -361,7 +871,26 @@ def render_province_drilldown(
+         None if detail["yoy_abs"] is None else f"{detail['yoy_abs']:+.0f}",
+     )
+ 
+-    st.caption(detail["explicacion"])
++    _render_colored_dss_box(detail)
++
++    analytic_parts: list[str] = [
++        f"Año consultado: <strong>{detail['year']}</strong>.",
++        f"Categoría DSS: <strong>{detail['categoria']}</strong>.",
++        f"Score de riesgo: <strong>{detail['score_riesgo']:.3f}</strong>.",
++        f"Predicción siguiente: <strong>{detail['pred_fallecidos_next']:.2f}</strong>.",
++    ]
++
++    if detail["yoy_pct"] is not None:
++        analytic_parts.append(
++            f"Variación interanual: <strong>{detail['yoy_pct']:.1f}%</strong>."
++        )
++
++    _render_text_analytic(" ".join(analytic_parts))
++
++    if detail["justificacion_regla"]:
++        st.write(f"**Justificación DSS:** {detail['justificacion_regla']}")
++    if detail["recomendacion"]:
++        st.write(f"**Recomendación DSS:** {detail['recomendacion']}")
+ 
+     fig_hist = px.line(
+         province_history,
+@@ -371,18 +900,85 @@ def render_province_drilldown(
+         title=f"Serie histórica de fallecidos - {detail['provincia']}",
+     )
+     fig_hist.update_layout(height=360, xaxis_title="Año", yaxis_title="Fallecidos")
+-    st.plotly_chart(fig_hist, width=FULL_WIDTH)
++    st.plotly_chart(
++        fig_hist,
++        width="stretch",
++        key=_build_chart_key(
++            "province_hist",
++            detail["provincia"],
++            selected_year,
++            len(province_history),
++            province_history["year"].min() if not province_history.empty else "na",
++            province_history["year"].max() if not province_history.empty else "na",
++        ),
++    )
+ 
+-    detail_table = province_history[
+-        ["year", "fallecidos", "pred_fallecidos_next", "score_riesgo", "categoria"]
+-    ].copy()
+-    st.dataframe(safe_dataframe(detail_table), width=FULL_WIDTH)
++    detail_cols = [
++        col
++        for col in [
++            "year",
++            "fallecidos",
++            "pred_fallecidos_next",
++            "score_riesgo",
++            "categoria",
++            "regla_aplicada",
++            "justificacion_regla",
++            "recomendacion",
++        ]
++        if col in province_history.columns
++    ]
++    detail_table = province_history[detail_cols].copy()
++    st.dataframe(safe_dataframe(detail_table), width="stretch")
+ 
+ 
+ def render_ranking_tab(filtered_ranking: pd.DataFrame, top_n: int) -> None:
+-    ranking_df = _prepare_category_column(filtered_ranking)
++    ranking_df = _prepare_category_column(filtered_ranking.copy())
++
++    ranking_df["nivel_visual"] = ranking_df["categoria"].map({
++        "Alta prioridad": "🔴 Alta prioridad",
++        "Vigilancia preventiva": "🟡 Vigilancia preventiva",
++        "Seguimiento rutinario": "🟢 Seguimiento rutinario",
++        "N/D": "⚪ N/D",
++    }).fillna("⚪ N/D")
++
++    preferred_cols = [
++        "ranking_posicion",
++        "provincia",
++        "nivel_visual",
++        "categoria",
++        "score_riesgo",
++        "pred_fallecidos_next",
++        "fallecidos_actuales",
++        "delta_abs",
++        "delta_pct",
++        "regla_aplicada",
++        "justificacion_regla",
++        "recomendacion",
++    ]
++    visible_cols = [col for col in preferred_cols if col in ranking_df.columns]
++
++    ranking_table = safe_dataframe(ranking_df[visible_cols])
++
++    def _style_row(row: pd.Series) -> list[str]:
++        categoria = str(row.get("categoria", "N/D")).strip()
++        color_map = {
++            "Alta prioridad": "background-color: rgba(231, 76, 60, 0.16);",
++            "Vigilancia preventiva": "background-color: rgba(243, 156, 18, 0.18);",
++            "Seguimiento rutinario": "background-color: rgba(46, 204, 113, 0.16);",
++            "N/D": "background-color: rgba(189, 195, 199, 0.18);",
++        }
++        style = color_map.get(categoria, color_map["N/D"])
++        return [style] * len(row)
++
++    styled_ranking_table = ranking_table.style.apply(_style_row, axis=1)
+ 
+-    st.dataframe(safe_dataframe(ranking_df), width=FULL_WIDTH)
++    st.dataframe(
++        styled_ranking_table,
++        width="stretch",
++        hide_index=True,
++    )
++
++    ranking_signature = _build_ranking_signature(ranking_df)
+ 
+     fig_rank = px.bar(
+         ranking_df.head(min(top_n, len(ranking_df))),
+@@ -390,12 +986,37 @@ def render_ranking_tab(filtered_ranking: pd.DataFrame, top_n: int) -> None:
+         y="score_riesgo",
+         color="categoria",
+         color_discrete_map=CATEGORY_COLOR_MAP,
+-        category_orders={"categoria": ["Baja", "Media", "Alta"]},
+-        hover_data=["pred_fallecidos_next", "fallecidos_actuales", "delta_pct"],
++        category_orders={
++            "categoria": [
++                "Seguimiento rutinario",
++                "Vigilancia preventiva",
++                "Alta prioridad",
++            ]
++        },
++        hover_data=[
++            col
++            for col in [
++                "pred_fallecidos_next",
++                "fallecidos_actuales",
++                "delta_pct",
++                "regla_aplicada",
++            ]
++            if col in ranking_df.columns
++        ],
+         title="Ranking de provincias priorizadas",
+     )
+     fig_rank.update_layout(height=500, xaxis_title="", yaxis_title="Score de riesgo")
+-    st.plotly_chart(fig_rank, width=FULL_WIDTH)
++    st.plotly_chart(
++        fig_rank,
++        width="stretch",
++        key=_build_chart_key(
++            "ranking_bar",
++            top_n,
++            len(ranking_df),
++            ranking_signature,
++            ranking_df["score_riesgo"].sum() if "score_riesgo" in ranking_df.columns else "na",
++        ),
++    )
+ 
+     fig_scatter = px.scatter(
+         ranking_df,
+@@ -404,16 +1025,34 @@ def render_ranking_tab(filtered_ranking: pd.DataFrame, top_n: int) -> None:
+         size="score_riesgo",
+         color="categoria",
+         color_discrete_map=CATEGORY_COLOR_MAP,
+-        category_orders={"categoria": ["Baja", "Media", "Alta"]},
++        category_orders={
++            "categoria": [
++                "Seguimiento rutinario",
++                "Vigilancia preventiva",
++                "Alta prioridad",
++            ]
++        },
+         hover_name="provincia",
+         title="Relación entre fallecidos actuales y predicción siguiente",
+     )
+     fig_scatter.update_layout(height=500)
+-    st.plotly_chart(fig_scatter, width=FULL_WIDTH)
++    st.plotly_chart(
++        fig_scatter,
++        width="stretch",
++        key=_build_chart_key(
++            "ranking_scatter",
++            top_n,
++            len(ranking_df),
++            ranking_signature,
++            ranking_df["pred_fallecidos_next"].sum()
++            if "pred_fallecidos_next" in ranking_df.columns
++            else "na",
++        ),
++    )
+ 
+ 
+ def render_metrics_tab(metricas_df: pd.DataFrame) -> None:
+-    st.dataframe(safe_dataframe(metricas_df), width=FULL_WIDTH)
++    st.dataframe(safe_dataframe(metricas_df), width="stretch")
+ 
+     fig_metrics = px.bar(
+         metricas_df,
+@@ -422,11 +1061,21 @@ def render_metrics_tab(metricas_df: pd.DataFrame) -> None:
+         title="Métricas de evaluación Top-K",
+     )
+     fig_metrics.update_layout(height=400, xaxis_title="", yaxis_title="Valor")
+-    st.plotly_chart(fig_metrics, width=FULL_WIDTH)
++    st.plotly_chart(
++        fig_metrics,
++        width="stretch",
++        key=_build_chart_key(
++            "metrics_bar",
++            len(metricas_df),
++            "_".join(metricas_df["metrica"].astype(str).head(5).tolist())
++            if "metrica" in metricas_df.columns
++            else "na",
++        ),
++    )
+ 
+ 
+ def render_xai_tab(explain_df: pd.DataFrame) -> None:
+-    st.dataframe(safe_dataframe(explain_df), width=FULL_WIDTH)
++    st.dataframe(safe_dataframe(explain_df), width="stretch")
+ 
+     fig_imp = px.bar(
+         explain_df.head(10),
+@@ -435,7 +1084,18 @@ def render_xai_tab(explain_df: pd.DataFrame) -> None:
+         title="Explicabilidad global del modelo",
+     )
+     fig_imp.update_layout(height=450, xaxis_title="", yaxis_title="Importancia")
+-    st.plotly_chart(fig_imp, width=FULL_WIDTH)
++    st.plotly_chart(
++        fig_imp,
++        width="stretch",
++        key=_build_chart_key(
++            "xai_bar",
++            min(10, len(explain_df)),
++            len(explain_df),
++            "_".join(explain_df["feature"].astype(str).head(5).tolist())
++            if "feature" in explain_df.columns
++            else "na",
++        ),
++    )
+ 
+ 
+ def render_narrative_tab(narrative_text: str) -> None:
+@@ -457,7 +1117,27 @@ def render_export_section(
+     version: str,
+     selected_year: int,
+ ) -> None:
+-    csv_bytes = to_csv_bytes(filtered_ranking)
++    ranking_export_df = filtered_ranking.copy()
++
++    preferred_ranking_cols = [
++        "ranking_posicion",
++        "provincia",
++        "categoria",
++        "score_riesgo",
++        "pred_fallecidos_next",
++        "fallecidos_actuales",
++        "delta_abs",
++        "delta_pct",
++        "regla_aplicada",
++        "justificacion_regla",
++        "recomendacion",
++    ]
++    ranking_export_cols = [
++        col for col in preferred_ranking_cols if col in ranking_export_df.columns
++    ]
++    ranking_export_df = ranking_export_df[ranking_export_cols].copy()
++
++    csv_bytes = to_csv_bytes(ranking_export_df)
+ 
+     detail_export_df = scored_df.copy()
+     if selected_provinces:
+@@ -465,9 +1145,29 @@ def render_export_section(
+             detail_export_df["provincia"].isin(selected_provinces)
+         ].copy()
+ 
++    preferred_detail_cols = [
++        "provincia",
++        "provincia_canonica",
++        "year",
++        "fallecidos",
++        "fallecidos_actuales",
++        "pred_fallecidos_next",
++        "score_riesgo",
++        "categoria",
++        "delta_abs",
++        "delta_pct",
++        "regla_aplicada",
++        "justificacion_regla",
++        "recomendacion",
++    ]
++    detail_export_cols = [
++        col for col in preferred_detail_cols if col in detail_export_df.columns
++    ]
++    detail_export_df = detail_export_df[detail_export_cols].copy()
++
+     xlsx_bytes = to_excel_bytes(
+         {
+-            "ranking_filtrado": filtered_ranking,
++            "ranking_filtrado": ranking_export_df,
+             "metricas": metricas_df,
+             "detalle": detail_export_df,
+             "explicabilidad": explain_df,
+@@ -479,7 +1179,7 @@ def render_export_section(
+         data=csv_bytes,
+         file_name=f"{project_name}_{version}_ranking_{selected_year}.csv",
+         mime="text/csv",
+-        width=FULL_WIDTH,
++        width="stretch",
+         key="download_ranking_csv",
+     )
+ 
+@@ -488,6 +1188,11 @@ def render_export_section(
+         data=xlsx_bytes,
+         file_name=f"{project_name}_{version}_resultados_{selected_year}.xlsx",
+         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+-        width=FULL_WIDTH,
++        width="stretch",
+         key="download_results_excel",
++    )
++
++    st.caption(
++        "La exportación incluye la salida operativa del DSS, incorporando categoría, "
++        "regla aplicada, justificación y recomendación cuando estén disponibles."
+     )
+\ No newline at end of file
+diff --git a/src/ui_summary.py b/src/ui_summary.py
+new file mode 100644
+index 0000000..4ebf221
+--- /dev/null
++++ b/src/ui_summary.py
+@@ -0,0 +1,92 @@
++from __future__ import annotations
++
++import pandas as pd
++import streamlit as st
++
++
++def get_metric_value(metricas_df: pd.DataFrame, metric_name: str) -> float | None:
++    """
++    Recupera una métrica escalar desde metricas_df por nombre.
++
++    Parameters
++    ----------
++    metricas_df : pd.DataFrame
++        DataFrame con columnas 'metrica' y 'valor'.
++    metric_name : str
++        Nombre de la métrica a recuperar.
++
++    Returns
++    -------
++    float | None
++        Valor convertido a float si existe y es válido; en caso contrario, None.
++    """
++    if metricas_df is None or metricas_df.empty:
++        return None
++
++    if "metrica" not in metricas_df.columns or "valor" not in metricas_df.columns:
++        return None
++
++    row = metricas_df.loc[metricas_df["metrica"] == metric_name, "valor"]
++    if row.empty:
++        return None
++
++    try:
++        return float(row.iloc[0])
++    except Exception:
++        return None
++
++
++def render_decision_engine_summary(
++    filtered_ranking: pd.DataFrame,
++    metricas_df: pd.DataFrame,
++    top_n: int,
++    selected_year_label: str,
++) -> None:
++    """
++    Renderiza un resumen visible del motor DSS.
++
++    Parameters
++    ----------
++    filtered_ranking : pd.DataFrame
++        Ranking filtrado actualmente visible en la app.
++    metricas_df : pd.DataFrame
++        DataFrame de métricas de evaluación.
++    top_n : int
++        Valor Top-N activo en la interfaz.
++    selected_year_label : str
++        Etiqueta del período seleccionado.
++    """
++    st.markdown("### Motor DSS visible")
++
++    c1, c2, c3, c4 = st.columns(4)
++    c1.info("1. Datos históricos por provincia")
++    c2.info("2. Modelo predictivo → score de riesgo")
++    c3.info("3. Reglas DSS → categoría operativa")
++    c4.info("4. Ranking Top-K → priorización")
++
++    if filtered_ranking is None or filtered_ranking.empty:
++        st.info("No hay datos disponibles para resumir el motor DSS.")
++        return
++
++    top_row = filtered_ranking.iloc[0]
++    hit3 = get_metric_value(metricas_df, "hitrate_at_3")
++    hit5 = get_metric_value(metricas_df, "hitrate_at_5")
++    precision3 = get_metric_value(metricas_df, "precision_at_3")
++
++    score_value = pd.to_numeric(top_row.get("score_riesgo", None), errors="coerce")
++    score_text = "N/D" if pd.isna(score_value) else f"{float(score_value):.3f}"
++
++    categoria_text = str(top_row.get("categoria", "N/D"))
++    provincia_text = str(top_row.get("provincia", "N/D"))
++
++    hit3_text = "N/D" if hit3 is None else f"{hit3:.3f}"
++    hit5_text = "N/D" if hit5 is None else f"{hit5:.3f}"
++    precision3_text = "N/D" if precision3 is None else f"{precision3:.3f}"
++
++    st.caption(
++        f"Período analizado: {selected_year_label}. "
++        f"La provincia actualmente priorizada en la salida del DSS es {provincia_text}, "
++        f"con score {score_text} y categoría '{categoria_text}'. "
++        f"En la evaluación de priorización, HitRate@3 = {hit3_text}, HitRate@5 = {hit5_text} "
++        f"y Precision@3 = {precision3_text}. El ranking visible usa Top-{top_n} según los filtros activos."
++    )
+\ No newline at end of file
+diff --git a/src/ui_theme.py b/src/ui_theme.py
+new file mode 100644
+index 0000000..f969467
+--- /dev/null
++++ b/src/ui_theme.py
+@@ -0,0 +1,59 @@
++from __future__ import annotations
++
++
++# =========================================================
++# PALETAS VISUALES POR CATEGORÍA DSS
++# =========================================================
++
++CATEGORY_THEME: dict[str, dict[str, str]] = {
++    "Alta prioridad": {
++        "bg": "rgba(231, 76, 60, 0.12)",
++        "border": "#e74c3c",
++        "badge_bg": "rgba(231, 76, 60, 0.18)",
++        "badge_text": "#fecaca",
++        "label": "🔴 Alta",
++    },
++    "Vigilancia preventiva": {
++        "bg": "rgba(243, 156, 18, 0.14)",
++        "border": "#f39c12",
++        "badge_bg": "rgba(243, 156, 18, 0.20)",
++        "badge_text": "#fde68a",
++        "label": "🟡 Media",
++    },
++    "Seguimiento rutinario": {
++        "bg": "rgba(46, 204, 113, 0.12)",
++        "border": "#2ecc71",
++        "badge_bg": "rgba(46, 204, 113, 0.18)",
++        "badge_text": "#bbf7d0",
++        "label": "🟢 Baja",
++    },
++    "N/D": {
++        "bg": "rgba(189, 195, 199, 0.16)",
++        "border": "#bdc3c7",
++        "badge_bg": "rgba(189, 195, 199, 0.22)",
++        "badge_text": "#e5e7eb",
++        "label": "⚪ N/D",
++    },
++}
++
++
++# =========================================================
++# FUNCIONES DE ACCESO
++# =========================================================
++
++def get_category_theme(categoria: str | None) -> dict[str, str]:
++    """
++    Devuelve la paleta visual asociada a una categoría DSS.
++    Siempre retorna un diccionario válido (fallback = N/D).
++    """
++    if categoria is None:
++        return CATEGORY_THEME["N/D"]
++
++    return CATEGORY_THEME.get(str(categoria).strip(), CATEGORY_THEME["N/D"])
++
++
++def get_category_label(categoria: str | None) -> str:
++    """
++    Devuelve la etiqueta corta (ej: 🔴 Alta).
++    """
++    return get_category_theme(categoria)["label"]
+\ No newline at end of file
+diff --git a/src/ui_topk.py b/src/ui_topk.py
+new file mode 100644
+index 0000000..6c95e49
+--- /dev/null
++++ b/src/ui_topk.py
+@@ -0,0 +1,319 @@
++from __future__ import annotations
++
++import html
++from typing import Callable
++
++import pandas as pd
++import streamlit as st
++
++from src.glossary import get_tooltip
++from src.ui_theme import get_category_theme
++
++
++def _escape(value: object) -> str:
++    return html.escape("" if value is None else str(value))
++
++
++def _help_badge(text: str) -> str:
++    if text is None or str(text).strip() == "":
++        return ""
++
++    safe_text = html.escape(str(text), quote=True)
++
++    return (
++        f'<span title="{safe_text}" '
++        'style="display:inline-flex;align-items:center;justify-content:center;'
++        'width:16px;height:16px;border-radius:50%;background:#1f2937;'
++        'color:#93c5fd;font-size:11px;font-weight:700;cursor:help;'
++        'border:1px solid #374151;user-select:none;margin-left:6px;'
++        'vertical-align:middle;">i</span>'
++    )
++
++
++def _inject_topk_styles() -> None:
++    st.markdown(
++        """
++        <style>
++        .topk-panel-card {
++            border-radius: 16px;
++            padding: 14px 14px 12px 14px;
++            min-height: 172px;
++            transition:
++                transform 0.18s ease,
++                box-shadow 0.18s ease,
++                border-color 0.18s ease,
++                background-color 0.18s ease;
++        }
++
++        .topk-panel-card:hover {
++            transform: translateY(-2px);
++            box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
++        }
++
++        .topk-panel-card--active {
++            box-shadow:
++                0 0 0 2px rgba(59, 130, 246, 0.16),
++                0 12px 24px rgba(15, 23, 42, 0.12);
++            transform: translateY(-1px);
++        }
++
++        .topk-panel-top {
++            display: flex;
++            justify-content: space-between;
++            align-items: flex-start;
++            gap: 8px;
++            margin-bottom: 0.65rem;
++        }
++
++        .topk-rank-chip {
++            display: inline-block;
++            padding: 4px 9px;
++            border-radius: 999px;
++            background: rgba(15, 23, 42, 0.36);
++            color: #e2e8f0;
++            font-size: 0.76rem;
++            font-weight: 800;
++            border: 1px solid rgba(148, 163, 184, 0.20);
++        }
++
++        .topk-badge {
++            display: inline-block;
++            padding: 4px 9px;
++            border-radius: 999px;
++            font-size: 0.76rem;
++            font-weight: 800;
++            white-space: nowrap;
++        }
++
++        .topk-province {
++            font-weight: 800;
++            font-size: 1.02rem;
++            line-height: 1.2;
++            color: #f8fafc;
++            margin-bottom: 0.4rem;
++        }
++
++        .topk-focus-pill {
++            display: inline-block;
++            margin-top: 0.35rem;
++            padding: 3px 8px;
++            border-radius: 999px;
++            background: rgba(59, 130, 246, 0.14);
++            color: #bfdbfe;
++            font-size: 0.78rem;
++            font-weight: 700;
++        }
++
++        .topk-metrics-grid {
++            display: grid;
++            grid-template-columns: 1fr 1fr;
++            gap: 8px;
++            margin-top: 0.8rem;
++        }
++
++        .topk-metric-box {
++            border-radius: 12px;
++            padding: 8px 10px;
++            background: rgba(15, 23, 42, 0.20);
++            border: 1px solid rgba(148, 163, 184, 0.16);
++        }
++
++        .topk-metric-label {
++            font-size: 0.75rem;
++            color: #94a3b8;
++            margin-bottom: 0.18rem;
++            font-weight: 700;
++        }
++
++        .topk-metric-value {
++            font-size: 0.94rem;
++            color: #f8fafc;
++            font-weight: 800;
++        }
++
++        .topk-detail {
++            font-size: 0.9rem;
++            line-height: 1.55;
++        }
++        </style>
++        """,
++        unsafe_allow_html=True,
++    )
++
++
++def _format_float(value: float, decimals: int = 2) -> str:
++    return f"{value:.{decimals}f}"
++
++
++def _format_signed(value: float, decimals: int = 2) -> str:
++    return f"{value:+.{decimals}f}"
++
++
++def _panel_card_html(
++    provincia: str,
++    categoria: str,
++    score: float,
++    pred_next: float,
++    delta_abs: float,
++    posicion: int,
++    is_active: bool,
++    palette: dict[str, str],
++) -> str:
++    position_help = _help_badge(get_tooltip("Posicion"))
++    category_help = _help_badge(get_tooltip("Categoria DSS"))
++    score_help = _help_badge(get_tooltip("Score actual"))
++    pred_help = _help_badge(get_tooltip("Prediccion proxima"))
++    delta_help = _help_badge(get_tooltip("Delta abs."))
++    focus_help = _help_badge(get_tooltip("Provincia en foco"))
++
++    active_class = " topk-panel-card--active" if is_active else ""
++
++    focus_text = (
++        f'<div class="topk-focus-pill">Provincia en foco {focus_help}</div>'
++        if is_active
++        else ""
++    )
++
++    return (
++        f'<div class="topk-panel-card{active_class}" '
++        f'style="background:{palette["bg"]};border:1px solid {palette["border"]};">'
++        '<div class="topk-panel-top">'
++        f'<div class="topk-rank-chip">#{posicion}{position_help}</div>'
++        f'<div class="topk-badge" '
++        f'style="background:{palette["badge_bg"]};color:{palette["badge_text"]};">'
++        f'{_escape(palette["label"])}{category_help}</div>'
++        "</div>"
++        f'<div class="topk-province">{_escape(provincia)}</div>'
++        f"{focus_text}"
++        '<div class="topk-metrics-grid">'
++        '<div class="topk-metric-box">'
++        f'<div class="topk-metric-label">Score{score_help}</div>'
++        f'<div class="topk-metric-value">{_format_float(score, 3)}</div>'
++        "</div>"
++        '<div class="topk-metric-box">'
++        f'<div class="topk-metric-label">Prediccion{pred_help}</div>'
++        f'<div class="topk-metric-value">{_format_float(pred_next, 2)}</div>'
++        "</div>"
++        '<div class="topk-metric-box" style="grid-column: 1 / span 2;">'
++        f'<div class="topk-metric-label">Delta abs.{delta_help}</div>'
++        f'<div class="topk-metric-value">{_format_signed(delta_abs, 2)}</div>'
++        "</div>"
++        "</div>"
++        "</div>"
++    )
++
++
++def _detail_lines_html(
++    rule_text: str,
++    justification_text: str,
++) -> str:
++    trace_help = _help_badge(get_tooltip("Trazabilidad de la decision"))
++
++    lines: list[str] = []
++
++    if rule_text:
++        lines.append(f"<b>Regla:</b> {_escape(rule_text)}{trace_help}")
++
++    if justification_text:
++        lines.append(f"<b>Justificacion:</b> {_escape(justification_text)}{trace_help}")
++
++    if not lines:
++        lines.append("No hay detalle adicional disponible para esta provincia.")
++
++    return f'<div class="topk-detail">{"<br>".join(lines)}</div>'
++
++
++def _infer_columns(num_cards: int) -> int:
++    if num_cards <= 1:
++        return 1
++    if num_cards <= 4:
++        return 2
++    return 3
++
++
++def render_topk_preview(
++    filtered_ranking: pd.DataFrame,
++    top_n: int,
++    set_selected_province_fn: Callable[[str | None], bool],
++) -> bool:
++    _inject_topk_styles()
++
++    st.markdown("### Top-K priorizado")
++    st.caption(get_tooltip("Top-K"))
++
++    if filtered_ranking is None or filtered_ranking.empty:
++        st.info("No hay provincias disponibles para mostrar en el Top-K.")
++        return False
++
++    preview_df = filtered_ranking.head(min(top_n, len(filtered_ranking))).copy()
++
++    if preview_df.empty:
++        st.info("No hay provincias disponibles para mostrar en el Top-K.")
++        return False
++
++    current_focus = str(st.session_state.get("selected_province", "")).strip()
++    clicked_any = False
++
++    num_cards = len(preview_df)
++    num_cols = _infer_columns(num_cards)
++
++    rows = [
++        preview_df.iloc[i:i + num_cols]
++        for i in range(0, num_cards, num_cols)
++    ]
++
++    for row_idx, row_df in enumerate(rows):
++        cols = st.columns(num_cols)
++
++        for col_idx, (col, (_, row)) in enumerate(zip(cols, row_df.iterrows())):
++            provincia = str(row.get("provincia", "N/D")).strip()
++            categoria = str(row.get("categoria", "N/D")).strip() or "N/D"
++            score = float(pd.to_numeric(row.get("score_riesgo", 0.0), errors="coerce"))
++            pred_next = float(
++                pd.to_numeric(row.get("pred_fallecidos_next", 0.0), errors="coerce")
++            )
++            delta_abs = float(pd.to_numeric(row.get("delta_abs", 0.0), errors="coerce"))
++            posicion = int(pd.to_numeric(row.get("ranking_posicion", 0), errors="coerce"))
++            rule_text = str(row.get("regla_aplicada", "")).strip()
++            justification_text = str(row.get("justificacion_regla", "")).strip()
++
++            is_active = current_focus == provincia
++            palette = get_category_theme(categoria)
++
++            with col:
++                st.markdown(
++                    _panel_card_html(
++                        provincia=provincia,
++                        categoria=categoria,
++                        score=score,
++                        pred_next=pred_next,
++                        delta_abs=delta_abs,
++                        posicion=posicion,
++                        is_active=is_active,
++                        palette=palette,
++                    ),
++                    unsafe_allow_html=True,
++                )
++
++                with st.expander("Ver trazabilidad", expanded=False):
++                    st.markdown(
++                        _detail_lines_html(
++                            rule_text=rule_text,
++                            justification_text=justification_text,
++                        ),
++                        unsafe_allow_html=True,
++                    )
++
++                button_label = "Provincia en foco" if is_active else f"Enfocar {provincia}"
++
++                clicked = st.button(
++                    button_label,
++                    key=f"topk_btn_{row_idx}_{col_idx}_{provincia}",
++                    width="stretch",
++                    disabled=is_active,
++                )
++
++                if clicked and set_selected_province_fn(provincia):
++                    clicked_any = True
++
++    return clicked_any
+\ No newline at end of file

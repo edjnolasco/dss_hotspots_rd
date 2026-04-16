@@ -24,29 +24,38 @@ GEO_CANDIDATE_KEYS = [
     "nom_prov",
 ]
 
-# Normalización robusta de categorías
 RISK_CATEGORY_MAP = {
-    "baja": "Baja",
-    "bajo": "Baja",
-    "media": "Media",
-    "medio": "Media",
-    "media alta": "Media-Alta",
-    "media-alta": "Media-Alta",
-    "media_alta": "Media-Alta",
-    "medio alto": "Media-Alta",
-    "medio-alto": "Media-Alta",
-    "alta": "Alta",
-    "alto": "Alta",
+    "alta prioridad": "Alta prioridad",
+    "alta": "Alta prioridad",
+    "alto": "Alta prioridad",
+    "vigilancia preventiva": "Vigilancia preventiva",
+    "media": "Vigilancia preventiva",
+    "medio": "Vigilancia preventiva",
+    "media alta": "Vigilancia preventiva",
+    "media-alta": "Vigilancia preventiva",
+    "media_alta": "Vigilancia preventiva",
+    "medio alto": "Vigilancia preventiva",
+    "medio-alto": "Vigilancia preventiva",
+    "seguimiento rutinario": "Seguimiento rutinario",
+    "baja": "Seguimiento rutinario",
+    "bajo": "Seguimiento rutinario",
+    "n/d": "N/D",
+    "nd": "N/D",
+    "": "N/D",
 }
 
 RISK_COLOR_MAP = {
-    "Baja": "#48c774",
-    "Media": "#d4c61c",
-    "Media-Alta": "#ff8c42",
-    "Alta": "#e74c3c",
+    "Alta prioridad": "#e74c3c",
+    "Vigilancia preventiva": "#f39c12",
+    "Seguimiento rutinario": "#2ecc71",
+    "N/D": "#bdc3c7",
 }
 
-RISK_CATEGORY_ORDER = ["Baja", "Media", "Media-Alta", "Alta"]
+RISK_CATEGORY_ORDER = [
+    "Seguimiento rutinario",
+    "Vigilancia preventiva",
+    "Alta prioridad",
+]
 
 
 def _safe_str(value: Any) -> str:
@@ -168,50 +177,29 @@ def extract_selected_province_from_click(
 
     point = selected_points[0] or {}
 
-    valid_provinces: set[str] = set()
-    if "provincia" in fallback_df.columns:
-        valid_provinces = set(
-            fallback_df["provincia"].dropna().astype(str).str.strip().tolist()
-        )
+    customdata = point.get("customdata")
 
-    candidate_fields = [
-        point.get("customdata"),
-        point.get("location"),
-        point.get("hovertext"),
-        point.get("text"),
-        point.get("x"),
-        point.get("y"),
-    ]
+    if isinstance(customdata, (list, tuple)):
+        for item in customdata:
+            candidate = _safe_str(item)
+            if candidate:
+                canon = canonical_province(candidate)
+                if canon:
+                    return canon
 
-    for candidate in candidate_fields:
-        if isinstance(candidate, (list, tuple)) and candidate:
-            candidate = candidate[0]
+    elif customdata is not None:
+        candidate = _safe_str(customdata)
+        if candidate:
+            canon = canonical_province(candidate)
+            if canon:
+                return canon
 
-        if candidate is None:
-            continue
-
-        candidate_str = _safe_str(candidate)
-        if not candidate_str:
-            continue
-
-        candidate_canonical = canonical_province(candidate_str)
-
-        if candidate_canonical and (
-            not valid_provinces or candidate_canonical in valid_provinces
-        ):
-            return candidate_canonical
-
-        candidate_normalized = normalize_text(candidate_str)
-        for province in valid_provinces:
-            if normalize_text(province) == candidate_normalized:
-                return province
-
-    point_index = point.get("pointIndex")
-    if isinstance(point_index, int) and not fallback_df.empty:
-        if 0 <= point_index < len(fallback_df):
-            province = fallback_df.iloc[point_index].get("provincia")
-            if province:
-                return str(province).strip()
+    for key in ("location", "text", "hovertext"):
+        candidate = _safe_str(point.get(key))
+        if candidate:
+            canon = canonical_province(candidate)
+            if canon:
+                return canon
 
     return None
 
@@ -263,22 +251,24 @@ def _prepare_map_dataframe(
     )
 
     matched_df = df[df["geo_match_name"].notna()].copy()
-    matched_df = matched_df.sort_values(["provincia"]).reset_index(drop=True)
+    matched_df = matched_df.drop_duplicates(subset=["provincia"]).reset_index(drop=True)
 
     return matched_df, unmatched
 
 
-def _build_hover_template_numeric(color_col: str) -> str:
-    return (
-        "<b>%{customdata[0]}</b><br>"
-        + f"{color_col}: %{{z}}"
-        + "<extra></extra>"
-    )
-
-
 def _normalize_risk_category(value: Any) -> str:
-    text = normalize_text(value)
-    return RISK_CATEGORY_MAP.get(text, _safe_str(value))
+    raw = _safe_str(value)
+    if not raw:
+        return "N/D"
+
+    text = normalize_text(raw)
+    if text in RISK_CATEGORY_MAP:
+        return RISK_CATEGORY_MAP[text]
+
+    if raw in {"Alta prioridad", "Vigilancia preventiva", "Seguimiento rutinario", "N/D"}:
+        return raw
+
+    return raw
 
 
 def _build_base_geo_layer(
@@ -286,7 +276,7 @@ def _build_base_geo_layer(
     featureidkey: str,
 ) -> go.Choropleth:
     features = geo_source.get("features", []) or []
-    all_locations = []
+    all_locations: list[str] = []
 
     for feature in features:
         raw_name = _extract_feature_name(feature)
@@ -303,7 +293,58 @@ def _build_base_geo_layer(
         marker_line_color="white",
         marker_line_width=0.7,
         hoverinfo="skip",
-        name="Sin datos",
+        name="Base",
+    )
+
+
+def _format_hover_number(value: Any, decimals: int = 2, signed: bool = False) -> str:
+    numeric = pd.to_numeric(value, errors="coerce")
+    if pd.isna(numeric):
+        return "N/D"
+    return f"{float(numeric):+.{decimals}f}" if signed else f"{float(numeric):.{decimals}f}"
+
+
+def _build_hover_fields(df: pd.DataFrame) -> pd.DataFrame:
+    plot_df = df.copy()
+
+    plot_df["hover_score_riesgo"] = plot_df.get(
+        "score_riesgo",
+        pd.Series(index=plot_df.index),
+    ).map(lambda x: _format_hover_number(x, decimals=3, signed=False))
+
+    plot_df["hover_pred_fallecidos_next"] = plot_df.get(
+        "pred_fallecidos_next",
+        pd.Series(index=plot_df.index),
+    ).map(lambda x: _format_hover_number(x, decimals=2, signed=False))
+
+    plot_df["hover_delta_abs"] = plot_df.get(
+        "delta_abs",
+        pd.Series(index=plot_df.index),
+    ).map(lambda x: _format_hover_number(x, decimals=2, signed=True))
+
+    plot_df["hover_categoria"] = (
+        plot_df.get("categoria", pd.Series(index=plot_df.index))
+        .map(_normalize_risk_category)
+        .fillna("N/D")
+    )
+
+    plot_df["hover_ranking_posicion"] = plot_df.get(
+        "ranking_posicion",
+        pd.Series(index=plot_df.index),
+    ).map(lambda x: f"#{int(x)}" if pd.notna(pd.to_numeric(x, errors="coerce")) else "N/D")
+
+    return plot_df
+
+
+def _build_hover_template_full() -> str:
+    return (
+        "<b>%{customdata[0]}</b><br>"
+        "Score de riesgo: %{customdata[1]}<br>"
+        "Predicción siguiente: %{customdata[2]}<br>"
+        "Δ abs.: %{customdata[3]}<br>"
+        "Categoría DSS: %{customdata[4]}<br>"
+        "Posición: %{customdata[5]}"
+        "<extra></extra>"
     )
 
 
@@ -313,7 +354,23 @@ def _build_categorical_trace(
     featureidkey: str,
     category_name: str,
 ) -> go.Choropleth:
-    color = RISK_COLOR_MAP[category_name]
+    color = RISK_COLOR_MAP.get(category_name, RISK_COLOR_MAP["N/D"])
+
+    subset = _build_hover_fields(subset.copy())
+    subset["provincia_click"] = subset["provincia"].astype(str).str.strip()
+
+    customdata = list(
+        zip(
+            subset["provincia_click"],
+            subset["hover_score_riesgo"],
+            subset["hover_pred_fallecidos_next"],
+            subset["hover_delta_abs"],
+            subset["hover_categoria"],
+            subset["hover_ranking_posicion"],
+            strict=False,
+        )
+    )
+
     return go.Choropleth(
         geojson=geo_source,
         locations=subset["geo_match_name"].tolist(),
@@ -323,10 +380,85 @@ def _build_categorical_trace(
         showscale=False,
         marker_line_color="white",
         marker_line_width=0.7,
-        customdata=subset[["provincia", "categoria_normalizada"]].values,
-        hovertemplate="<b>%{customdata[0]}</b><br>categoria: %{customdata[1]}<extra></extra>",
+        customdata=customdata,
+        hovertemplate=_build_hover_template_full(),
         name=category_name,
     )
+
+
+def _build_numeric_map_figure(
+    plot_df: pd.DataFrame,
+    geo_source: dict[str, Any],
+    featureidkey: str,
+    color_col: str,
+    title: str,
+):
+    numeric_series = pd.to_numeric(plot_df[color_col], errors="coerce")
+
+    if numeric_series.notna().any():
+        vmin = float(numeric_series.min())
+        vmax = float(numeric_series.max())
+    else:
+        vmin, vmax = 0.0, 1.0
+
+    if vmin == vmax:
+        vmax = vmin + 1e-6
+
+    is_diverging = color_col == "delta_pct"
+
+    if is_diverging:
+        abs_max = float(numeric_series.abs().max()) if numeric_series.notna().any() else 1.0
+        abs_max = abs_max if abs_max > 0 else 1.0
+        range_color = (-abs_max, abs_max)
+        color_scale = "RdYlGn_r"
+    else:
+        range_color = (vmin, vmax)
+        color_scale = "Turbo"
+
+    choropleth = px.choropleth(
+        plot_df,
+        geojson=geo_source,
+        locations="geo_match_name",
+        featureidkey=featureidkey,
+        color=color_col,
+        hover_name="provincia",
+        custom_data=[
+            "provincia",
+            "hover_score_riesgo",
+            "hover_pred_fallecidos_next",
+            "hover_delta_abs",
+            "hover_categoria",
+            "hover_ranking_posicion",
+        ],
+        title=title,
+        color_continuous_scale=color_scale,
+        range_color=range_color,
+    )
+
+    colorbar_title = color_col.replace("_", " ").title()
+    if color_col == "delta_pct":
+        colorbar_title = "Delta %"
+
+    choropleth.update_traces(
+        marker_line_width=0.7,
+        marker_line_color="white",
+        hovertemplate=_build_hover_template_full(),
+    )
+
+    choropleth.update_layout(
+        coloraxis_colorbar=dict(
+            title=colorbar_title,
+            thickness=18,
+            len=0.78,
+            y=0.5,
+            yanchor="middle",
+            outlinewidth=0,
+            tickfont=dict(size=11, color="#cbd5e1"),
+            titlefont=dict(size=12, color="#e2e8f0"),
+        )
+    )
+
+    return choropleth
 
 
 @st.cache_data(show_spinner=False)
@@ -374,6 +506,7 @@ def build_map_cached(
 
     plot_df = matched_df.copy()
     plot_df["is_selected"] = False
+
     if selected_province:
         selected_canonical = canonical_province(selected_province)
         plot_df["is_selected"] = (
@@ -389,6 +522,7 @@ def build_map_cached(
             subset = plot_df[plot_df["categoria_normalizada"] == category_name].copy()
             if subset.empty:
                 continue
+
             figure.add_trace(
                 _build_categorical_trace(
                     subset=subset,
@@ -397,26 +531,37 @@ def build_map_cached(
                     category_name=category_name,
                 )
             )
+
+        nd_subset = plot_df[
+            ~plot_df["categoria_normalizada"].isin(RISK_CATEGORY_ORDER)
+        ].copy()
+
+        if not nd_subset.empty:
+            nd_subset["categoria_normalizada"] = "N/D"
+            figure.add_trace(
+                _build_categorical_trace(
+                    subset=nd_subset,
+                    geo_source=geo_source,
+                    featureidkey=featureidkey,
+                    category_name="N/D",
+                )
+            )
     else:
-        choropleth = px.choropleth(
-            plot_df,
-            geojson=geo_source,
-            locations="geo_match_name",
+        plot_df = _build_hover_fields(plot_df)
+
+        numeric_fig = _build_numeric_map_figure(
+            plot_df=plot_df,
+            geo_source=geo_source,
             featureidkey=featureidkey,
-            color=color_col,
-            hover_name="provincia",
-            custom_data=["provincia"],
+            color_col=color_col,
             title=title,
         )
 
-        choropleth.update_traces(
-            marker_line_width=0.7,
-            marker_line_color="white",
-            hovertemplate=_build_hover_template_numeric(color_col),
-        )
-
-        for trace in choropleth.data:
+        for trace in numeric_fig.data:
             figure.add_trace(trace)
+
+        if hasattr(numeric_fig.layout, "coloraxis") and numeric_fig.layout.coloraxis:
+            figure.update_layout(coloraxis=numeric_fig.layout.coloraxis)
 
     if selected_province:
         selected_df = plot_df[plot_df["is_selected"]].copy()
@@ -442,20 +587,24 @@ def build_map_cached(
     figure.update_geos(
         fitbounds="locations",
         visible=False,
+        bgcolor="rgba(0,0,0,0)",
     )
 
     layout_kwargs = dict(
+        title=title,
         margin=dict(l=0, r=0, t=60, b=0),
         height=620,
         clickmode="event+select",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         legend=dict(
-            title="Nivel de riesgo",
+            title="Nivel de riesgo DSS",
             orientation="v",
         ),
     )
 
     if not is_categorical_risk:
-        layout_kwargs["legend_title_text"] = color_col
+        layout_kwargs["legend_title_text"] = color_col.replace("_", " ").title()
 
     figure.update_layout(**layout_kwargs)
 

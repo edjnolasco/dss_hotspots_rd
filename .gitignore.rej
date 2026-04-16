@@ -1,0 +1,7 @@
+diff a/.gitignore b/.gitignore	(rejected hunks)
+@@ -147,3 +148,5 @@ data/exports/
+ # If releases will be managed through GitHub Releases, ignore ZIPs
+ # -----------------------------
+ releases/*.zip
++data/distrito_municipal_rd.json
++data/distrito_municipal_rd.json
