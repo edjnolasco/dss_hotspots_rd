@@ -10,14 +10,14 @@ from streamlit_plotly_events import plotly_events
 from src.debug_tools import render_geo_debug_panel, should_debug_map_click
 from src.glossary import get_tooltip
 from src.province_utils import canonical_province
-from src.ui_map import (
+from ui.ui_map import (
     build_geo_quality_summary,
     build_map_cached,
     load_geojson_source,
     should_accept_map_click,
 )
-from src.ui_sections import render_province_drilldown
-from src.ui_theme import get_category_theme
+from ui.ui_sections import render_province_drilldown
+from ui.ui_theme import get_category_theme
 
 
 def resolve_clicked_province_from_plotly_event(
@@ -731,8 +731,10 @@ def render_map_section(
                     current_selected = province_options[0]
                     st.session_state["selected_province"] = current_selected
 
-                if st.session_state.get("province_focus_selectbox") != current_selected:
-                    st.session_state["province_focus_selectbox"] = current_selected
+                if province_options:
+                    widget_focus = st.session_state.get("province_focus_selectbox")
+                    if widget_focus not in province_options:
+                        st.session_state["province_focus_selectbox"] = current_selected
 
                 province_from_ui = st.selectbox(
                     "Provincia en foco",
@@ -741,8 +743,7 @@ def render_map_section(
                 )
 
                 if province_from_ui != st.session_state.get("selected_province"):
-                    if set_selected_province_fn(province_from_ui):
-                        st.rerun()
+                    st.session_state["selected_province"] = province_from_ui
 
                 clear_selection = st.button(
                     "Restablecer foco",
@@ -751,8 +752,8 @@ def render_map_section(
                 )
                 if clear_selection and province_options:
                     default_focus = province_options[0]
-                    if set_selected_province_fn(default_focus):
-                        st.rerun()
+                    st.session_state["selected_province"] = default_focus
+                    st.rerun()
 
                 comparison_enabled = st.checkbox(
                     "Modo comparación",
@@ -781,7 +782,7 @@ def render_map_section(
 
                 if focus_df.empty and province_options:
                     fallback_province = province_options[0]
-                    set_selected_province_fn(fallback_province)
+                    st.session_state["selected_province"] = fallback_province
                     focus_df = filtered_ranking[
                         filtered_ranking["provincia"] == fallback_province
                     ].copy()

@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from src.glossary import get_tooltip
-from src.ui_theme import get_category_theme
+from ui.ui_theme import get_category_theme
 
 
 def _escape(value: object) -> str:

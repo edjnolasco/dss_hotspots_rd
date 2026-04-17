@@ -8,10 +8,21 @@ import pandas as pd
 import streamlit as st
 
 APP_DIR = Path(__file__).resolve().parent
-ROOT = APP_DIR if (APP_DIR / "src").exists() else APP_DIR.parent
+PROJECT_ROOT = APP_DIR.parent
 
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+PATH_CANDIDATES = [
+    APP_DIR,       # permite importar ui.*
+    PROJECT_ROOT,  # permite importar src.*
+]
+
+for candidate in PATH_CANDIDATES:
+    candidate_str = str(candidate)
+    if candidate_str not in sys.path:
+        sys.path.insert(0, candidate_str)
+
+ROOT = PROJECT_ROOT
+
+from src.section_router import SectionRenderContext, render_section
 
 from src.data_sources import (  # noqa: E402
     OFFICIAL_PROVINCES_URL,
@@ -33,23 +44,28 @@ from src.debug_tools import (  # noqa: E402
     sync_debug_state,
 )
 from src.glossary import GLOSARIO_DSS  # noqa: E402
+from src.interactive_filters import build_interactive_context  # noqa: E402
 from src.pipeline import run_pipeline  # noqa: E402
+from src.section_router import SectionRenderContext, render_section  # noqa: E402
 from src.state import ensure_session_state, reset_selection_state  # noqa: E402
-from src.ui_about import render_about_section  # noqa: E402
-from src.ui_help import render_help_section  # noqa: E402
-from src.ui_sections import (  # noqa: E402
-    apply_interactive_filters,
-    build_year_ranking,
-    render_export_section,
-    render_metrics_tab,
-    render_narrative_tab,
-    render_ranking_tab,
-    render_xai_tab,
-)
 from src.version import AUTHOR, PROJECT_NAME, VERSION  # noqa: E402
-from src.ui_overview import render_overview_section  # noqa: E402
-from src.ui_ranking_section import render_ranking_section  # noqa: E402
-from src.ui_map_section import render_map_section  # noqa: E402
+from src.view_state import (  # noqa: E402
+    VIEW_ABOUT,
+    VIEW_HELP,
+    VIEW_MAP,
+    VIEW_RANKING,
+    VIEW_SUMMARY,
+    init_view_state,
+    set_active_analysis_context,
+    set_last_export_metadata,
+    set_last_summary_text,
+    set_selected_top_k,
+    set_selected_view,
+    set_selected_years,
+    set_state,
+)
+from ui.ui_about import render_about_section  # noqa: E402
+from ui.ui_help import render_help_section  # noqa: E402
 
 SECTION_OPTIONS = [
     "Ranking",
@@ -126,24 +142,44 @@ SECTION_HEADERS = {
     ),
 }
 
+SECTION_TO_VIEW = {
+    "Mapa y drill-down": VIEW_MAP,
+    "Ranking": VIEW_RANKING,
+    "Narrativa": VIEW_SUMMARY,
+    "Ayuda e interpretación": VIEW_HELP,
+    "Acerca de": VIEW_ABOUT,
+}
+
 LOGGER = configure_logger()
 
 
 def request_section(section_name: str) -> None:
     if section_name in SECTION_OPTIONS:
         st.session_state["active_section"] = section_name
+        mapped_view = SECTION_TO_VIEW.get(section_name)
+        if mapped_view:
+            set_selected_view(mapped_view)
 
 
 def ensure_app_state() -> None:
     ensure_session_state()
     sync_debug_state()
 
+    init_view_state(
+        overrides={
+            "selected_view": VIEW_MAP,
+            "selected_years": [],
+            "selected_top_k": 10,
+            "normalization_mode": "raw",
+        }
+    )
+
     defaults: dict[str, Any] = {
         "analysis_results": None,
         "source_label": None,
         "active_section": "Mapa y drill-down",
         "selected_province": None,
-        "selected_years": [],
+        "selected_years": st.session_state.get("selected_years", []),
         "selected_provinces_filter": [],
         "include_all_years": True,
         "include_all_provinces": True,
@@ -154,7 +190,7 @@ def ensure_app_state() -> None:
         "geo_local_path": str(ROOT / "data" / "rd_provinces.geojson"),
         "show_dss_trace": True,
         "show_top_only": False,
-        "top_n": None,
+        "top_n": st.session_state.get("selected_top_k", None),
     }
 
     for key, value in defaults.items():
@@ -173,6 +209,20 @@ def ensure_app_state() -> None:
     if st.session_state["active_section"] not in SECTION_OPTIONS:
         st.session_state["active_section"] = "Mapa y drill-down"
 
+    active_section = st.session_state.get("active_section", "Mapa y drill-down")
+    mapped_view = SECTION_TO_VIEW.get(active_section)
+    if mapped_view:
+        set_selected_view(mapped_view)
+
+    if "selected_years" in st.session_state:
+        set_selected_years(st.session_state.get("selected_years", []) or [])
+
+    if "top_n" in st.session_state and st.session_state.get("top_n") is not None:
+        try:
+            set_selected_top_k(int(st.session_state["top_n"]))
+        except (TypeError, ValueError):
+            pass
+
 
 def set_selected_province(new_value: str | None) -> bool:
     old_value = st.session_state.get("selected_province")
@@ -180,7 +230,6 @@ def set_selected_province(new_value: str | None) -> bool:
         return False
 
     st.session_state["selected_province"] = new_value
-    st.session_state["province_focus_selectbox"] = new_value
     return True
 
 
@@ -194,26 +243,14 @@ def sync_focus_province(valid_options: list[str]) -> None:
         st.session_state["selected_province"] = valid_options[0]
 
 
-def coerce_top_n(num_items: int, current_value: int | None) -> int:
-    if num_items <= 0:
-        return 0
-    if num_items <= 3:
-        return num_items
-    if current_value is None:
-        return min(9, num_items)
-    return min(max(current_value, 3), num_items)
-
-
 def build_rule_trace_text(row: pd.Series) -> str:
     regla = str(row.get("regla_aplicada", "")).strip()
     justificacion = str(row.get("justificacion_regla", "")).strip()
 
     if regla and justificacion:
         return f"{regla}. {justificacion}"
-
     if justificacion:
         return justificacion
-
     if regla:
         return regla
 
@@ -304,14 +341,9 @@ with st.sidebar:
                     disabled=True,
                     type="primary",
                 )
-            else:
-                if st.button(
-                    "Ayuda",
-                    width="stretch",
-                    key="open_help_section_button",
-                ):
-                    request_section("Ayuda e interpretación")
-                    st.rerun()
+            elif st.button("Ayuda", width="stretch", key="open_help_section_button"):
+                request_section("Ayuda e interpretación")
+                st.rerun()
 
         with shortcut_col2:
             if is_about_active:
@@ -322,14 +354,9 @@ with st.sidebar:
                     disabled=True,
                     type="primary",
                 )
-            else:
-                if st.button(
-                    "Acerca de",
-                    width="stretch",
-                    key="open_about_section_button",
-                ):
-                    request_section("Acerca de")
-                    st.rerun()
+            elif st.button("Acerca de", width="stretch", key="open_about_section_button"):
+                request_section("Acerca de")
+                st.rerun()
 
     with st.container(border=True):
         st.markdown("**Datos**")
@@ -342,10 +369,7 @@ with st.sidebar:
         )
 
         local_path = (
-            st.text_input(
-                "Ruta local del dataset",
-                key="local_path",
-            )
+            st.text_input("Ruta local del dataset", key="local_path")
             if source_mode == "Ruta local"
             else st.session_state.get("local_path", "")
         )
@@ -371,10 +395,7 @@ with st.sidebar:
         )
 
         geo_local_path = (
-            st.text_input(
-                "Ruta local del GeoJSON",
-                key="geo_local_path",
-            )
+            st.text_input("Ruta local del GeoJSON", key="geo_local_path")
             if geo_mode == "Ruta local"
             else st.session_state.get("geo_local_path", "")
         )
@@ -393,12 +414,7 @@ with st.sidebar:
 
     with st.container(border=True):
         st.markdown("**Ejecución**")
-
-        st.checkbox(
-            "Mostrar trazabilidad DSS",
-            key="show_dss_trace",
-        )
-
+        st.checkbox("Mostrar trazabilidad DSS", key="show_dss_trace")
         run_clicked = st.button(
             "Ejecutar análisis",
             type="primary",
@@ -419,7 +435,6 @@ if run_clicked:
                     "'Subir CSV/XLSX' con el archivo oficial descargado manualmente."
                 )
                 st.stop()
-
         elif source_mode == "Subir CSV/XLSX":
             if uploaded_file is None:
                 st.error("Debes subir un archivo.")
@@ -430,7 +445,6 @@ if run_clicked:
                 uploaded_file.getvalue(),
             )
             source_label = f"Archivo subido: {uploaded_file.name}"
-
         else:
             normalized_df = load_data_local(local_path)
             source_label = "Dataset local"
@@ -441,10 +455,7 @@ if run_clicked:
         pipeline_results["_debug"] = build_pipeline_debug_info(
             input_df=normalized_df,
             runtime_sec=runtime_info.elapsed,
-            extra={
-                "source_mode": source_mode,
-                "geo_mode": geo_mode,
-            },
+            extra={"source_mode": source_mode, "geo_mode": geo_mode},
         )
 
         st.session_state["analysis_results"] = pipeline_results
@@ -460,6 +471,14 @@ if run_clicked:
         st.session_state["show_top_only"] = False
         st.session_state["top_n"] = None
 
+        set_selected_years([])
+        set_selected_top_k(10)
+        set_state("selected_metric", "categoria")
+        set_state("normalization_mode", "raw")
+        set_last_summary_text(str(pipeline_results.get("narrative_text", "") or ""))
+        set_last_export_metadata({})
+        set_active_analysis_context({})
+
         request_section("Mapa y drill-down")
         st.success("Análisis ejecutado correctamente.")
         st.rerun()
@@ -474,6 +493,7 @@ current_section = st.session_state.get("active_section", "Mapa y drill-down")
 if current_section not in SECTION_OPTIONS:
     current_section = "Mapa y drill-down"
     st.session_state["active_section"] = current_section
+    set_selected_view(VIEW_MAP)
 
 with st.container(border=True):
     st.markdown("**Navegación**")
@@ -484,6 +504,10 @@ with st.container(border=True):
         key="active_section",
         label_visibility="collapsed",
     )
+
+mapped_view = SECTION_TO_VIEW.get(active_section)
+if mapped_view:
+    set_selected_view(mapped_view)
 
 if not results:
     if active_section == "Ayuda e interpretación":
@@ -504,16 +528,13 @@ if not results:
     st.caption(
         "Las secciones de ayuda y de información general están disponibles sin ejecutar el análisis."
     )
-
     st.markdown("### Fuente oficial prevista")
     st.code(OFFICIAL_PROVINCES_URL)
-
     st.markdown("### Nota sobre DIGESETT")
     st.write(
         "Si la descarga remota falla con HTTP 403, usa la opción 'Subir CSV/XLSX' "
         "con el archivo oficial descargado manualmente."
     )
-
     st.markdown("### GeoJSON esperado")
     st.code(str(ROOT / "data" / "rd_provinces.geojson"))
     st.stop()
@@ -542,232 +563,64 @@ header_title, header_caption = SECTION_HEADERS.get(
     active_section,
     ("Sección", "Contenido disponible."),
 )
-
 st.markdown(f"## {header_title}")
 st.caption(header_caption)
 
 all_years = sorted(scored_df["year"].dropna().astype(int).unique().tolist())
 default_year = int(results.get("latest_year", all_years[-1]))
 
-selected_years: list[int] = []
-selected_provinces: list[str] = []
-metric_column = st.session_state.get("metric_column", "categoria")
-top_n = st.session_state.get("top_n", 0) or 0
-show_top_only = st.session_state.get("show_top_only", False)
-filtered_ranking = pd.DataFrame()
-province_options: list[str] = []
-selected_year_label = ""
+interactive_ctx = build_interactive_context(
+    active_section=active_section,
+    analytic_sections=ANALYTIC_SECTIONS,
+    scored_df=scored_df,
+    all_years=all_years,
+    default_year=default_year,
+    metric_options=METRIC_OPTIONS,
+    source_mode=source_mode,
+    geo_mode=geo_mode,
+)
 
-if active_section in ANALYTIC_SECTIONS:
-    st.markdown("### Exploración interactiva")
+selected_years = interactive_ctx.selected_years
+selected_provinces = interactive_ctx.selected_provinces
+metric_column = interactive_ctx.metric_column
+top_n = interactive_ctx.top_n
+show_top_only = interactive_ctx.show_top_only
+filtered_ranking = interactive_ctx.filtered_ranking
+province_options = interactive_ctx.province_options
+selected_year_label = interactive_ctx.selected_year_label
+available_provinces_for_years = interactive_ctx.available_provinces_for_years
 
-    fcol1, fcol2, fcol3, fcol4 = st.columns([1.2, 1.6, 1.0, 1.0])
+render_trace_table(filtered_ranking)
 
-    include_all_years = fcol1.checkbox(
-        "Todos los años",
-        key="include_all_years",
-    )
-
-    if include_all_years:
-        selected_years = all_years
-        st.session_state["selected_years"] = all_years
-    else:
-        current_years = st.session_state.get("selected_years", [default_year]) or [default_year]
-        current_years = [y for y in current_years if y in all_years]
-        if not current_years:
-            current_years = [default_year]
-
-        selected_years = fcol1.multiselect(
-            "Años",
-            options=all_years,
-            default=current_years,
-            key="selected_years",
-        )
-
-        if not selected_years:
-            st.warning("Debes seleccionar al menos un año.")
-            st.stop()
-
-    year_filtered_df = scored_df[scored_df["year"].isin(selected_years)].copy()
-
-    available_provinces_for_years = sorted(
-        year_filtered_df["provincia"].dropna().astype(str).unique().tolist()
-    )
-
-    if not available_provinces_for_years:
-        st.warning("No hay provincias disponibles para la combinación actual de años.")
-        st.stop()
-
-    include_all_provinces = fcol2.checkbox(
-        "Todas las provincias",
-        key="include_all_provinces",
-    )
-
-    if include_all_provinces:
-        selected_provinces = available_provinces_for_years
-        st.session_state["selected_provinces_filter"] = available_provinces_for_years
-    else:
-        current_provinces = st.session_state.get("selected_provinces_filter", []) or []
-        current_provinces = [p for p in current_provinces if p in available_provinces_for_years]
-
-        selected_provinces = fcol2.multiselect(
-            "Provincias",
-            options=available_provinces_for_years,
-            default=current_provinces,
-            placeholder="Selecciona una o varias provincias",
-            key="selected_provinces_filter",
-        )
-
-        if not selected_provinces:
-            st.warning("Debes seleccionar al menos una provincia.")
-            st.stop()
-
-    metric_column = fcol3.selectbox(
-        "Variable del mapa",
-        options=METRIC_OPTIONS,
-        key="metric_column",
-    )
-
-    num_provinces_visible = len(selected_provinces)
-
-    if num_provinces_visible == 0:
-        st.warning("No hay provincias disponibles para los filtros actuales.")
-        st.stop()
-
-    if num_provinces_visible <= 3:
-        top_n = num_provinces_visible
-        st.session_state["top_n"] = top_n
-        fcol4.info(f"Top-N fijado en {top_n}")
-    else:
-        current_top_n = coerce_top_n(
-            num_items=num_provinces_visible,
-            current_value=st.session_state.get("top_n"),
-        )
-        st.session_state["top_n"] = current_top_n
-
-        top_n = fcol4.slider(
-            "Top-N",
-            min_value=3,
-            max_value=num_provinces_visible,
-            key="top_n",
-        )
-
-    show_top_only = st.checkbox(
-        "Mostrar solo Top-N en ranking y mapa",
-        key="show_top_only",
-    )
-
-    base_multi_year = (
-        year_filtered_df[year_filtered_df["provincia"].isin(selected_provinces)]
-        .sort_values(["provincia", "year"])
-        .groupby("provincia", as_index=False)
-        .tail(1)
-        .copy()
-    )
-
-    filtered_ranking = build_year_ranking(base_multi_year, int(base_multi_year["year"].max()))
-
-    filtered_ranking = apply_interactive_filters(
-        ranking_df=filtered_ranking,
-        selected_provinces=selected_provinces,
-        top_n=top_n,
-        show_top_only=show_top_only,
-    )
-
-    if filtered_ranking.empty:
-        st.warning("No hay datos disponibles con la combinación actual de filtros.")
-        st.stop()
-
-    render_trace_table(filtered_ranking)
-
-    province_options = sorted(filtered_ranking["provincia"].dropna().astype(str).unique().tolist())
+if province_options:
     sync_focus_province(province_options)
 
-    selected_year_label = (
-        str(selected_years[0])
-        if len(selected_years) == 1
-        else f"{min(selected_years)}–{max(selected_years)}"
-    )
-else:
-    selected_years = all_years
-    selected_provinces = []
-    selected_year_label = str(all_years[-1]) if all_years else ""
-
-if active_section == "Ranking":
-    render_ranking_section(
-        filtered_ranking=filtered_ranking,
-        top_n=top_n,
-        show_dss_trace=st.session_state.get("show_dss_trace", True),
-    )
-    render_ranking_tab(filtered_ranking=filtered_ranking, top_n=top_n)
-
-elif active_section == "Mapa y drill-down":
-    topk_clicked = render_overview_section(
-        filtered_ranking=filtered_ranking,
-        metric_column=metric_column,
+render_section(
+    SectionRenderContext(
+        active_section=active_section,
         results=results,
-        selected_year=max(selected_years),
-        geo_mode=geo_mode,
+        filtered_ranking=filtered_ranking,
         metricas_df=metricas_df,
+        explain_df=explain_df,
+        scored_df=scored_df,
+        metric_column=metric_column,
         top_n=top_n,
-        selected_year_label=selected_year_label,
-        set_selected_province_fn=set_selected_province,
-        show_dss_trace=st.session_state.get("show_dss_trace", True),
-    )
-
-    if topk_clicked:
-        st.rerun()
-
-    render_map_section(
+        show_top_only=show_top_only,
         geo_mode=geo_mode,
         geo_local_path=geo_local_path,
         uploaded_geo=uploaded_geo,
-        filtered_ranking=filtered_ranking,
-        metric_column=metric_column,
-        selected_year_label=selected_year_label,
-        show_top_only=show_top_only,
-        top_n=top_n,
         province_options=province_options,
-        scored_df=scored_df,
         selected_years=selected_years,
+        selected_year_label=selected_year_label,
+        selected_provinces=selected_provinces,
+        available_provinces_for_years=available_provinces_for_years,
+        project_name=PROJECT_NAME,
+        version=VERSION,
+        glossary=GLOSARIO_DSS,
+        source_label=st.session_state.get("source_label"),
         set_selected_province_fn=set_selected_province,
         build_rule_trace_text_fn=build_rule_trace_text,
         build_recommendation_text_fn=build_recommendation_text,
+        show_dss_trace=st.session_state.get("show_dss_trace", True),
     )
-
-elif active_section == "Métricas":
-    if st.session_state.get("show_dss_trace", True):
-        st.caption(
-            "Estas métricas no solo evalúan error del modelo, sino también la calidad de la priorización "
-            "Top-K producida por el DSS."
-        )
-    render_metrics_tab(metricas_df=metricas_df)
-
-elif active_section == "Explicabilidad":
-    if st.session_state.get("show_dss_trace", True):
-        st.caption(
-            "La explicabilidad muestra qué variables pesan más en la generación del score, "
-            "mientras que la decisión operativa final se obtiene después mediante reglas."
-        )
-    render_xai_tab(explain_df=explain_df)
-
-elif active_section == "Narrativa":
-    render_narrative_tab(narrative_text=results["narrative_text"])
-
-elif active_section == "Exportación":
-    render_export_section(
-        filtered_ranking=filtered_ranking,
-        metricas_df=metricas_df,
-        scored_df=scored_df[scored_df["year"].isin(selected_years)].copy(),
-        explain_df=explain_df,
-        selected_provinces=selected_provinces,
-        project_name=PROJECT_NAME,
-        version=VERSION,
-        selected_year=max(selected_years),
-    )
-
-elif active_section == "Ayuda e interpretación":
-    render_help_section(GLOSARIO_DSS)
-
-elif active_section == "Acerca de":
-    render_about_section()
+)
