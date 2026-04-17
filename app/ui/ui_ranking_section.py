@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from src.ui_sections import render_ranking_tab
+from ui.ui_sections import render_ranking_tab
 
 
 def render_ranking_section(

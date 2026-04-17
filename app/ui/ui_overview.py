@@ -5,9 +5,9 @@ from typing import Callable
 import pandas as pd
 import streamlit as st
 
-from src.ui_sections import render_kpi_summary
-from src.ui_summary import render_decision_engine_summary
-from src.ui_topk import render_topk_preview
+from ui.ui_sections import render_kpi_summary
+from ui.ui_summary import render_decision_engine_summary
+from ui.ui_topk import render_topk_preview
 
 
 def render_overview_section(

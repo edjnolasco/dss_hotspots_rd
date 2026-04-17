@@ -3,7 +3,7 @@ from __future__ import annotations
 import streamlit as st
 from typing import Any
 
-from src.ui_components import render_glossary_expander
+from ui.ui_components import render_glossary_expander
 
 
 def render_help_section(glossary: dict[str, Any]) -> None:
