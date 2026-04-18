@@ -2,215 +2,282 @@
 
 ![CI](https://github.com/edjnolasco/dss_hotspots_rd/actions/workflows/ci.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-80%25-brightgreen)
-![Release](https://img.shields.io/badge/release-v1.0.0-blue)
+![Version](https://img.shields.io/badge/version-v1.2.0-blue)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Framework](https://img.shields.io/badge/streamlit-1.56.0-red)
+![ML](https://img.shields.io/badge/modeling-multi--model-green)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
+![Status](https://img.shields.io/badge/status-stable-success)
 
-Sistema de Soporte a la Decisión (DSS) para la identificación, priorización y análisis de hotspots de accidentes de tránsito en la República Dominicana.
-
----
-
-## Autor
-**Edwin José Nolasco**
-
----
-
-## Resumen Ejecutivo
-
-DSS_Hotspots_RD es un sistema diseñado para apoyar la toma de decisiones en seguridad vial mediante la identificación de territorios críticos (hotspots) de siniestralidad.
-
-El sistema transforma datos históricos en **priorización accionable**, permitiendo responder preguntas clave:
-
-- ¿Dónde intervenir primero?
-- ¿Qué provincias presentan mayor criticidad relativa?
-- ¿Cómo optimizar recursos limitados?
-
-El DSS no solo describe la situación, sino que **estructura decisiones mediante ranking, reglas y narrativa automatizada**.
+Sistema de Soporte a la Decisión (DSS) para la identificación, priorización y visualización de zonas críticas de siniestralidad vial en la República Dominicana.
 
 ---
 
-## Descripción del sistema
+## 🔖 Versión actual
 
-El proyecto implementa un DSS híbrido que integra:
+**v1.2.0**
 
-- Procesamiento y validación de datos territoriales
-- Ingeniería de características
-- Modelos predictivos (Machine Learning)
-- Reglas de decisión DSS
-- Métricas de priorización Top-K
-- Visualización geoespacial interactiva
-- Generación automática de resumen ejecutivo
-- Exportación profesional de resultados
+Esta versión consolida una evolución importante del proyecto mediante:
 
----
-
-## Propuesta de valor
-
-A diferencia de dashboards tradicionales:
-
-- Prioriza decisiones, no solo visualiza datos
-- Integra analítica + reglas + narrativa (enfoque DSS completo)
-- Implementa lógica Top-K para escenarios reales de intervención
-- Ofrece doble interfaz: analítica y ejecutiva
+- motor predictivo **multi-modelo**
+- **benchmark** comparativo de algoritmos
+- exportación automática de **tablas y figuras**
+- modo **presentación ON/OFF**
+- narrativa ejecutiva estructurada sin scroll interno
 
 ---
 
-## Modos de uso
+## 🎯 Objetivo
 
-### 🔬 Modo Analítico
-- Exploración completa de datos
-- Métricas detalladas
-- Validación y trazabilidad del DSS
+El sistema tiene como propósito apoyar la toma de decisiones en seguridad vial mediante:
 
-### 📊 Modo Presentación (Ejecutivo)
-- Resumen ejecutivo automático
-- KPIs clave
-- Top-N provincias prioritarias
-- Mapa limpio
-- Recomendación DSS directa
+- identificación de provincias con mayor criticidad relativa
+- estimación de riesgo usando datos históricos
+- priorización operativa mediante ranking **Top-K**
+- generación de recomendaciones accionables
+- interpretación ejecutiva de la salida del DSS
 
 ---
 
-## Arquitectura del sistema
+## 🚀 Valor diferencial
 
-El sistema sigue una arquitectura modular desacoplada:
+DSS_Hotspots_RD no se limita a mostrar indicadores o aplicar un único modelo de machine learning. El sistema integra:
 
-- `app/` → capa de presentación (Streamlit + UI modular)
-- `src/` → motor DSS (pipeline, reglas, métricas, narrativa)
-- `data/` → datos tabulares y geoespaciales
-- `scripts/` → utilidades de transformación
+- un enfoque **híbrido DSS**: datos + modelo + reglas + ranking
+- comparación entre **múltiples algoritmos**
+- una capa explícita de **reglas DSS**
+- explicabilidad del modelo
+- narrativa ejecutiva orientada a decisión
+- exportación reproducible para informes académicos y técnicos
 
-Esta separación permite evolución independiente de la interfaz y del núcleo analítico.
+Este enfoque mejora la robustez, la interpretabilidad y la utilidad operativa del sistema.
 
 ---
 
-## Diagrama de arquitectura (C4)
+## 🧠 Enfoque DSS
 
-### Nivel 1 — Contexto
+El flujo general del sistema es:
 
-```mermaid
-flowchart TB
-    U[Usuario]
-    DSS[DSS_Hotspots_RD]
-    DS[Fuentes de datos]
-
-    U --> DSS
-    DS --> DSS
+```text
+Datos → Features → Modelo ML → Score → Reglas DSS → Ranking → Decisión
 ```
 
-### Nivel 2 — Contenedores
+### Componentes principales
 
-```mermaid
-flowchart TB
-    U[Usuario]
-
-    subgraph DSS_Hotspots_RD
-        UI[Aplicación Streamlit]
-        CORE[Motor DSS]
-        DATA[Datos]
-    end
-
-    U --> UI
-    UI --> CORE
-    CORE --> DATA
-```
-
-### Nivel 3 — Componentes
-
-```mermaid
-flowchart LR
-    U[Usuario]
-
-    subgraph UI_LAYER[app/ui]
-        UI_SECTIONS[Secciones UI]
-    end
-
-    subgraph CORE[src]
-        PIPELINE[Pipeline DSS]
-        RULES[Reglas]
-        METRICS[Métricas]
-        NARRATIVE[Narrativa]
-        EXPORT[Exportación]
-        MAP[Geoespacial]
-    end
-
-    subgraph DATA[data]
-        TABULAR[Datos tabulares]
-        GEO[GeoJSON]
-    end
-
-    U --> UI_SECTIONS
-    UI_SECTIONS --> PIPELINE
-    PIPELINE --> RULES
-    PIPELINE --> METRICS
-    PIPELINE --> NARRATIVE
-    PIPELINE --> EXPORT
-    PIPELINE --> MAP
-    PIPELINE --> TABULAR
-    MAP --> GEO
-```
+- **Data Layer**: datos históricos normalizados por provincia y año
+- **Feature Engineering**: construcción de variables derivadas para predicción
+- **Predictive Engine**: estimación del riesgo mediante modelos ML
+- **Rule Engine**: categorización operativa con reglas DSS
+- **Ranking Layer**: priorización territorial Top-K
+- **Narrative Layer**: síntesis ejecutiva de resultados
+- **Export Layer**: generación de artefactos para análisis y reporte
 
 ---
 
-## Flujo DSS
+## 🤖 Motor predictivo multi-modelo
 
-1. Ingesta de datos
-2. Validación y normalización territorial
-3. Ingeniería de características
-4. Construcción de métricas de criticidad
-5. Generación de ranking territorial
-6. Aplicación de reglas DSS
-7. Visualización y narrativa
-8. Exportación de resultados
+La versión `v1.2.0` incorpora selección dinámica del motor predictivo desde la interfaz. Los modelos soportados actualmente son:
 
----
+- Random Forest
+- Extra Trees
+- Gradient Boosting
+- HistGradientBoosting
+- SVM (SVR con kernel RBF)
 
-## Enfoque Top-K (Formalización)
-
-El sistema adopta un enfoque Top-K para priorización territorial.
-
-Dado un conjunto de provincias \( P = {p_1, p_2, ..., p_n} \) y una función de criticidad \( f(p) \), se define:
-
-- Ranking: ordenar \( P \) en función de \( f(p) \)
-- Selección: elegir los \( K \) elementos con mayor criticidad
-
-### Métricas implementadas
-
-- **HitRate@K**: mide si los verdaderos hotspots están dentro del Top-K
-- **nDCG@K (Normalized Discounted Cumulative Gain)**:
-  - Evalúa calidad del ranking considerando posición
-  - Penaliza errores en ordenamiento
-
-Este enfoque es consistente con escenarios donde los recursos de intervención son limitados y se requiere priorización efectiva.
+Esto permite comparar enfoques ensemble, boosting y basados en márgenes dentro de una misma tubería DSS.
 
 ---
 
-## Estructura del repositorio
+## 📊 Benchmark de modelos
 
-```bash
+El sistema incluye un módulo de benchmarking que permite evaluar los modelos bajo una misma estrategia de validación.
+
+### Métricas consideradas
+
+- **MAE** (Mean Absolute Error)
+- **RMSE** (Root Mean Squared Error)
+- **R²** (Coefficient of Determination)
+
+### Estrategia de validación
+
+- partición temporal
+- entrenamiento con años históricos
+- evaluación sobre el período más reciente disponible
+- comparación homogénea entre algoritmos
+
+### Resultado
+
+El benchmark puede visualizarse directamente en la app y exportarse automáticamente a:
+
+- `CSV`
+- `XLSX`
+- `PNG`
+
+---
+
+## 🧾 Narrativa ejecutiva
+
+La salida del DSS no se presenta únicamente como tabla o gráfico. El sistema genera una narrativa estructurada que resume:
+
+- contexto del análisis
+- resultado general
+- provincias priorizadas
+- desempeño del sistema
+- interpretación
+- lectura operativa
+
+En **modo presentación**, la narrativa se simplifica para una lectura más ejecutiva:
+
+- hallazgo principal
+- provincias priorizadas
+- lectura ejecutiva
+- recomendación general
+
+---
+
+## 🖥️ Modo presentación
+
+Se incorporó un toggle **Presentación ON/OFF** para alternar entre:
+
+### Modo análisis
+- benchmark visible
+- bloque técnico del modelo
+- narrativa completa
+- secciones analíticas completas
+
+### Modo presentación
+- interfaz más limpia
+- ocultación de ruido técnico
+- narrativa ejecutiva simplificada
+- navegación más enfocada a demostración
+
+---
+
+## 🧩 Arquitectura del proyecto
+
+```text
 DSS_Hotspots_RD/
-├── .github/        # CI/CD
-├── app/            # Aplicación y UI
-├── src/            # Motor DSS
-├── data/           # Datos y geodatos
-├── scripts/        # Utilidades
+│
+├── VERSION
 ├── README.md
 ├── CHANGELOG.md
-├── VERSION
-└── requirements.txt
+├── release_notes_v1.2.0.md
+├── requirements.txt
+├── requirements.lock.txt
+│
+├── app/
+│   ├── app.py
+│   └── ui/
+│       ├── ui_about.py
+│       ├── ui_help.py
+│       ├── ui_model_selector.py
+│       ├── ui_sections.py
+│       └── ui_summary.py
+│
+├── src/
+│   ├── benchmark_exports.py
+│   ├── data_sources.py
+│   ├── debug_tools.py
+│   ├── exporter.py
+│   ├── features.py
+│   ├── glossary.py
+│   ├── interactive_filters.py
+│   ├── metrics.py
+│   ├── model_benchmark.py
+│   ├── model_catalog.py
+│   ├── modeling.py
+│   ├── narrative.py
+│   ├── pipeline.py
+│   ├── rules.py
+│   ├── section_router.py
+│   ├── state.py
+│   ├── version.py
+│   └── view_state.py
+│
+├── data/
+├── reports/
+│   ├── figures/
+│   └── tables/
+└── tests/
 ```
 
 ---
 
-## Instalación
+## 🧱 Arquitectura DSS (C4 – nivel contenedor)
+
+```text
+[Usuario]
+   ↓
+[Streamlit UI]
+   ↓
+[DSS Pipeline]
+   ├── Feature Engineering
+   ├── Multi-Model Engine
+   │   ├── Random Forest
+   │   ├── Extra Trees
+   │   ├── Gradient Boosting
+   │   ├── HistGradientBoosting
+   │   └── SVM (SVR-RBF)
+   ├── Scoring Layer
+   ├── Rule Engine
+   ├── Ranking Engine (Top-K)
+   ├── Explainability
+   └── Narrative Engine
+   ↓
+[Visualization + Export]
+```
+
+---
+
+## 🔍 Explicabilidad
+
+El sistema incorpora una estrategia escalonada de interpretabilidad:
+
+1. **SHAP**, si aplica al modelo y al entorno
+2. **Feature Importance**, para modelos compatibles
+3. **Permutation Importance**, como mecanismo de respaldo
+
+Esto permite complementar la salida del ranking con evidencia sobre las variables de mayor influencia.
+
+---
+
+## 📤 Exportación
+
+La app genera artefactos reutilizables para análisis y documentación.
+
+### Tablas
+- ranking filtrado (`CSV`)
+- resultados completos (`XLSX`)
+
+### Figuras
+- benchmark comparativo (`PNG`)
+
+### Ubicación de salida
+```text
+reports/
+├── figures/
+└── tables/
+```
+
+---
+
+## ⚙️ Instalación
+
+### Instalación estándar
 
 ```bash
-git clone https://github.com/edjnolasco/dss_hotspots_rd.git
-cd dss_hotspots_rd
 pip install -r requirements.txt
 ```
 
+### Reproducibilidad exacta del entorno
+
+```bash
+pip install -r requirements.lock.txt
+```
+
 ---
 
-## Ejecución
+## ▶️ Ejecución
 
 ```bash
 streamlit run app/app.py
@@ -218,26 +285,66 @@ streamlit run app/app.py
 
 ---
 
-## Calidad del proyecto
+## 🔁 Reproducibilidad
 
-- Pruebas unitarias (pytest)
-- Coverage >= 80%
-- Linting con Ruff
-- CI/CD con GitHub Actions
-- Arquitectura modular desacoplada
+El proyecto incorpora elementos para facilitar replicación y trazabilidad:
 
----
-
-## Roadmap
-
-- Modelos avanzados (SVM, ensembles)
-- Explicabilidad (XAI)
-- Series temporales
-- Integración con datos en tiempo real
-- Despliegue productivo
+- dependencias fijas en `requirements.txt`
+- snapshot del entorno en `requirements.lock.txt`
+- estrategia de validación temporal
+- exportación automática de artefactos
+- control explícito de versión mediante archivo `VERSION`
 
 ---
 
-## Licencia
+## 📊 Resultados esperados
 
-MIT License
+La salida del sistema combina:
+
+- ranking territorial priorizado
+- score de riesgo normalizado
+- categoría DSS
+- recomendación operativa
+- lectura ejecutiva del análisis
+
+En términos metodológicos, el sistema permite comparar el desempeño de modelos distintos sin alterar la lógica general del DSS.
+
+---
+
+## 📘 Aplicación académica
+
+Este proyecto puede utilizarse como base para:
+
+- sistemas de soporte a la decisión en transporte
+- integración de machine learning y reglas
+- visualización analítica territorial
+- benchmarking de modelos predictivos
+- documentación académica de tipo tesis, paper o informe técnico
+
+---
+
+## 📚 Cómo citar (APA 7)
+
+```text
+Nolasco, E. J. (2026). DSS_Hotspots_RD: Sistema de soporte a la decisión para la priorización de siniestralidad vial basado en modelos multi-algoritmo y reglas (v1.2.0) [Software]. GitHub. https://github.com/edjnolasco/dss_hotspots_rd
+```
+
+---
+
+## 👤 Autor
+
+**Edwin José Nolasco**
+
+---
+
+## 📌 Licencia
+
+**MIT License**
+
+---
+
+## 🧠 Conclusión
+
+DSS_Hotspots_RD demuestra que la integración de modelos predictivos, reglas de decisión y mecanismos de priorización puede dar lugar a un sistema más robusto, interpretable y útil para contextos reales de análisis territorial.
+
+El sistema no busca únicamente predecir, sino estructurar decisiones apoyadas en evidencia.

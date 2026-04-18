@@ -11,6 +11,7 @@ import streamlit as st
 
 from src.exporter import to_csv_bytes, to_excel_bytes
 from src.glossary import get_tooltip
+from src.narrative import format_executive_narrative
 
 CATEGORY_COLOR_MAP = {
     "Alta prioridad": "#e74c3c",
@@ -1099,12 +1100,78 @@ def render_xai_tab(explain_df: pd.DataFrame) -> None:
 
 
 def render_narrative_tab(narrative_text: str) -> None:
-    st.text_area(
-        "Narrativa automática",
-        narrative_text,
-        height=180,
-        key="narrative_text_area",
+    if not narrative_text or not str(narrative_text).strip():
+        st.info("No hay narrativa disponible para este análisis.")
+        return
+
+    presentation_mode = st.session_state.get("presentation_mode", False)
+    blocks = format_executive_narrative(narrative_text)
+
+    if presentation_mode:
+        st.markdown("## Resumen ejecutivo")
+        _render_text_desc(
+            "Lectura sintetizada de la salida del DSS, orientada a presentación y toma de decisiones."
+        )
+
+        with st.container(border=True):
+            if blocks["resumen"]:
+                st.markdown("### Hallazgo principal")
+                st.markdown(blocks["resumen"])
+            elif blocks["contexto"]:
+                st.markdown("### Hallazgo principal")
+                st.markdown(blocks["contexto"])
+
+            if blocks["topk_items"]:
+                st.markdown("### Provincias priorizadas")
+                for item in blocks["topk_items"]:
+                    st.markdown(f"- {item}")
+            elif blocks["topk_text"]:
+                st.markdown("### Provincias priorizadas")
+                st.markdown(blocks["topk_text"])
+
+            if blocks["interpretacion"]:
+                st.markdown("### Lectura ejecutiva")
+                st.markdown(blocks["interpretacion"])
+
+            if blocks["cierre"]:
+                st.markdown("### Recomendación general")
+                st.markdown(blocks["cierre"])
+
+        return
+
+    st.markdown("## 🧾 Narrativa ejecutiva")
+    _render_text_desc(
+        "Síntesis interpretativa del DSS, estructurada para facilitar una lectura ejecutiva sin scroll interno."
     )
+
+    with st.container(border=True):
+        if blocks["contexto"]:
+            st.markdown("### 📌 Contexto")
+            st.markdown(blocks["contexto"])
+
+        if blocks["resumen"]:
+            st.markdown("### 📊 Resultado general")
+            st.markdown(blocks["resumen"])
+
+        if blocks["topk_items"]:
+            st.markdown("### 🎯 Prioridades (Top-K)")
+            for item in blocks["topk_items"]:
+                st.markdown(f"- {item}")
+        elif blocks["topk_text"]:
+            st.markdown("### 🎯 Prioridades (Top-K)")
+            st.markdown(blocks["topk_text"])
+
+        if blocks["metricas"]:
+            st.markdown("### 📈 Desempeño del sistema")
+            st.markdown(blocks["metricas"])
+
+        if blocks["interpretacion"]:
+            st.markdown("### 🧠 Interpretación")
+            st.markdown(blocks["interpretacion"])
+
+        if blocks["cierre"]:
+            st.markdown("### ⚠️ Lectura operativa")
+            st.markdown(blocks["cierre"])
 
 
 def render_export_section(

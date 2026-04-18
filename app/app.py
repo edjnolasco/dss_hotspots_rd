@@ -11,8 +11,8 @@ APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
 
 PATH_CANDIDATES = [
-    APP_DIR,       # permite importar ui.*
-    PROJECT_ROOT,  # permite importar src.*
+    APP_DIR,
+    PROJECT_ROOT,
 ]
 
 for candidate in PATH_CANDIDATES:
@@ -22,8 +22,11 @@ for candidate in PATH_CANDIDATES:
 
 ROOT = PROJECT_ROOT
 
-from src.section_router import SectionRenderContext, render_section
-
+from src.benchmark_exports import (  # noqa: E402
+    benchmark_figure_bytes,
+    build_benchmark_figure,
+    export_benchmark_artifacts,
+)
 from src.data_sources import (  # noqa: E402
     OFFICIAL_PROVINCES_URL,
     fetch_remote_dataframe,
@@ -45,10 +48,11 @@ from src.debug_tools import (  # noqa: E402
 )
 from src.glossary import GLOSARIO_DSS  # noqa: E402
 from src.interactive_filters import build_interactive_context  # noqa: E402
+from src.model_benchmark import benchmark_models  # noqa: E402
 from src.pipeline import run_pipeline  # noqa: E402
 from src.section_router import SectionRenderContext, render_section  # noqa: E402
 from src.state import ensure_session_state, reset_selection_state  # noqa: E402
-from src.version import AUTHOR, PROJECT_NAME, VERSION  # noqa: E402
+from src.version import PROJECT_NAME, VERSION  # noqa: E402
 from src.view_state import (  # noqa: E402
     VIEW_ABOUT,
     VIEW_HELP,
@@ -66,6 +70,7 @@ from src.view_state import (  # noqa: E402
 )
 from ui.ui_about import render_about_section  # noqa: E402
 from ui.ui_help import render_help_section  # noqa: E402
+from ui.ui_model_selector import render_model_selector  # noqa: E402
 
 SECTION_OPTIONS = [
     "Ranking",
@@ -165,19 +170,22 @@ def ensure_app_state() -> None:
     ensure_session_state()
     sync_debug_state()
 
-    init_view_state(
-        overrides={
-            "selected_view": VIEW_MAP,
-            "selected_years": [],
-            "selected_top_k": 10,
-            "normalization_mode": "raw",
-        }
-    )
+    # Inicializar view_state solo una vez para no pisar la navegación en cada rerun
+    if "selected_view" not in st.session_state:
+        init_view_state(
+            overrides={
+                "selected_view": VIEW_RANKING,
+                "selected_years": [],
+                "selected_top_k": 10,
+                "normalization_mode": "raw",
+            }
+        )
 
     defaults: dict[str, Any] = {
         "analysis_results": None,
+        "analysis_benchmark": None,
         "source_label": None,
-        "active_section": "Mapa y drill-down",
+        "active_section": "Ranking",
         "selected_province": None,
         "selected_years": st.session_state.get("selected_years", []),
         "selected_provinces_filter": [],
@@ -191,6 +199,7 @@ def ensure_app_state() -> None:
         "show_dss_trace": True,
         "show_top_only": False,
         "top_n": st.session_state.get("selected_top_k", None),
+        "presentation_mode": False,
     }
 
     for key, value in defaults.items():
@@ -207,12 +216,7 @@ def ensure_app_state() -> None:
         st.session_state["geo_mode"] = "Ruta local"
 
     if st.session_state["active_section"] not in SECTION_OPTIONS:
-        st.session_state["active_section"] = "Mapa y drill-down"
-
-    active_section = st.session_state.get("active_section", "Mapa y drill-down")
-    mapped_view = SECTION_TO_VIEW.get(active_section)
-    if mapped_view:
-        set_selected_view(mapped_view)
+        st.session_state["active_section"] = "Ranking"
 
     if "selected_years" in st.session_state:
         set_selected_years(st.session_state.get("selected_years", []) or [])
@@ -222,6 +226,14 @@ def ensure_app_state() -> None:
             set_selected_top_k(int(st.session_state["top_n"]))
         except (TypeError, ValueError):
             pass
+
+    active_section = st.session_state.get("active_section", "Ranking")
+    mapped_view = SECTION_TO_VIEW.get(active_section)
+    if mapped_view:
+        set_selected_view(mapped_view)
+    elif "analysis_results" not in st.session_state or not st.session_state.get("analysis_results"):
+        # Solo aplicar Ranking como default inicial si no hay resultado y la sección no mapea a una vista específica
+        set_selected_view(VIEW_RANKING)
 
 
 def set_selected_province(new_value: str | None) -> bool:
@@ -289,10 +301,13 @@ def build_recommendation_text(row: pd.Series) -> str:
 
 
 st.set_page_config(page_title=f"{PROJECT_NAME} {VERSION}", layout="wide")
-st.title(f"{PROJECT_NAME} {VERSION}")
-st.caption(f"Autor: {AUTHOR}")
 
 ensure_app_state()
+presentation_mode = st.session_state.get("presentation_mode", False)
+
+st.title(PROJECT_NAME)
+if not presentation_mode:
+    st.caption(f"Versión {VERSION}")
 
 
 @st.cache_data(show_spinner=False)
@@ -317,12 +332,31 @@ def process_uploaded_data(file_name: str, file_bytes: bytes) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def process_pipeline(df: pd.DataFrame) -> dict[str, Any]:
-    return run_pipeline(df)
+def process_pipeline(
+    df: pd.DataFrame,
+    model_key: str,
+) -> dict[str, Any]:
+    return run_pipeline(df, model_key=model_key)
+
+
+@st.cache_data(show_spinner=False)
+def process_benchmark(df: pd.DataFrame) -> pd.DataFrame:
+    return benchmark_models(df)
 
 
 with st.sidebar:
     st.markdown("### Panel de control")
+
+    with st.container(border=True):
+        st.markdown("**Modo de visualización**")
+        st.toggle(
+            "Modo presentación",
+            key="presentation_mode",
+            help=(
+                "Oculta elementos técnicos y deja una vista más limpia, "
+                "orientada a demostración ejecutiva."
+            ),
+        )
 
     with st.container(border=True):
         is_help_active = (
@@ -410,6 +444,15 @@ with st.sidebar:
             else None
         )
 
+    with st.container(border=True):
+        st.markdown("**Motor predictivo**")
+        selected_model_key = render_model_selector()
+        run_benchmark = st.checkbox(
+            "Comparar algoritmos",
+            value=False,
+            help="Ejecuta un benchmark rápido entre los modelos disponibles.",
+        )
+
     render_debug_sidebar()
 
     with st.container(border=True):
@@ -450,15 +493,28 @@ if run_clicked:
             source_label = "Dataset local"
 
         with measure_runtime("pipeline", LOGGER) as runtime_info:
-            pipeline_results = process_pipeline(normalized_df)
+            pipeline_results = process_pipeline(
+                normalized_df,
+                model_key=selected_model_key,
+            )
+
+        benchmark_results = None
+        if run_benchmark:
+            benchmark_results = process_benchmark(normalized_df)
 
         pipeline_results["_debug"] = build_pipeline_debug_info(
             input_df=normalized_df,
             runtime_sec=runtime_info.elapsed,
-            extra={"source_mode": source_mode, "geo_mode": geo_mode},
+            extra={
+                "source_mode": source_mode,
+                "geo_mode": geo_mode,
+                "model_key": selected_model_key,
+                "model_label": pipeline_results.get("model_label"),
+            },
         )
 
         st.session_state["analysis_results"] = pipeline_results
+        st.session_state["analysis_benchmark"] = benchmark_results
         st.session_state["source_label"] = source_label
 
         reset_selection_state()
@@ -479,7 +535,7 @@ if run_clicked:
         set_last_export_metadata({})
         set_active_analysis_context({})
 
-        request_section("Mapa y drill-down")
+        request_section("Ranking")
         st.success("Análisis ejecutado correctamente.")
         st.rerun()
 
@@ -488,18 +544,37 @@ if run_clicked:
         st.exception(exc)
 
 results = st.session_state.get("analysis_results")
+benchmark_df = st.session_state.get("analysis_benchmark")
+presentation_mode = st.session_state.get("presentation_mode", False)
 
-current_section = st.session_state.get("active_section", "Mapa y drill-down")
+visible_section_options = (
+    [
+        "Ranking",
+        "Mapa y drill-down",
+        "Narrativa",
+        "Exportación",
+        "Ayuda e interpretación",
+        "Acerca de",
+    ]
+    if presentation_mode
+    else SECTION_OPTIONS
+)
+
+current_section = st.session_state.get("active_section", "Ranking")
 if current_section not in SECTION_OPTIONS:
-    current_section = "Mapa y drill-down"
+    current_section = "Ranking"
     st.session_state["active_section"] = current_section
-    set_selected_view(VIEW_MAP)
+    set_selected_view(VIEW_RANKING)
 
 with st.container(border=True):
     st.markdown("**Navegación**")
+
+    if st.session_state.get("active_section") not in visible_section_options:
+        st.session_state["active_section"] = visible_section_options[0]
+
     active_section = st.radio(
         "Sección",
-        options=SECTION_OPTIONS,
+        options=visible_section_options,
         horizontal=True,
         key="active_section",
         label_visibility="collapsed",
@@ -544,8 +619,54 @@ render_session_state_debug()
 
 if debug_flag("debug_show_state"):
     st.write(st.session_state.get("source_label"))
-else:
-    st.caption(f"Fuente: {source_mode}")
+
+if not presentation_mode:
+    st.info(
+        f"Motor predictivo activo: {results.get('model_label', 'No disponible')} | "
+        f"MAE: {results.get('mae')} | "
+        f"RMSE: {results.get('rmse')} | "
+        f"R²: {results.get('r2')}"
+    )
+
+if (
+    not presentation_mode
+    and isinstance(benchmark_df, pd.DataFrame)
+    and not benchmark_df.empty
+):
+    with st.expander("Benchmark de algoritmos", expanded=False):
+        st.dataframe(benchmark_df, width="stretch", hide_index=True)
+
+        fig = build_benchmark_figure(benchmark_df)
+        if fig is not None:
+            st.pyplot(fig)
+
+            figure_buffer = benchmark_figure_bytes(benchmark_df)
+            if figure_buffer is not None:
+                st.download_button(
+                    label="Descargar figura benchmark (PNG)",
+                    data=figure_buffer,
+                    file_name="benchmark_modelos.png",
+                    mime="image/png",
+                )
+
+        export_clicked = st.button(
+            "Exportar benchmark a /reports",
+            key="export_benchmark_reports_button",
+            width="stretch",
+        )
+
+        if export_clicked:
+            exported_paths = export_benchmark_artifacts(
+                benchmark_df=benchmark_df,
+                project_root=ROOT,
+                filename_base="benchmark_modelos",
+            )
+
+            st.success("Artefactos del benchmark exportados correctamente.")
+            st.write("**Rutas generadas:**")
+            for label, path in exported_paths.items():
+                if path:
+                    st.code(f"{label}: {path}")
 
 scored_df = results["scored_df"].copy()
 metricas_df = results["metricas_df"].copy()

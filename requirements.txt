@@ -1,7 +1,7 @@
 # ============================================================
 # DSS_Hotspots_RD - Requirements
 # Autor: Edwin José Nolasco
-# Versión: v1.1.0
+# Versión: v1.0.0
 # ============================================================
 
 # Core data processing
@@ -10,21 +10,26 @@ numpy==1.26.4
 
 # Machine Learning
 scikit-learn==1.4.2
+scipy==1.17.1
+shap==0.45.1
+numba==0.65.0
 
 # Visualization
 plotly==5.24.1
+matplotlib==3.10.8
+altair==5.5.0
 
 # Dashboard / Frontend
-streamlit==1.44.0
-
-# Explainability
-shap==0.45.1
+streamlit==1.56.0
+streamlit-plotly-events==0.0.6
 
 # File export
 openpyxl==3.1.5
+pillow==11.3.0
 
 # Utilities
-python-dateutil>=2.8.2
-pytz>=2024.1
-requests>=2.32.0
-streamlit-plotly-events>=0.0.6
+requests==2.33.1
+python-dateutil==2.9.0.post0
+pytz==2026.1.post1
+tzdata==2026.1
+GitPython==3.1.46
