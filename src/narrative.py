@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import math
+import re
 
 import pandas as pd
 
@@ -143,7 +144,7 @@ def _extract_metrics(payload: Mapping[str, Any] | None) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         return {}
 
-    for key in ("metrics", "metricas", "evaluation", "evaluacion"):
+    for key in ("metrics", "metricas", "evaluation", "evaluacion", "metricas_df"):
         value = payload.get(key)
         if isinstance(value, Mapping):
             return dict(value)
@@ -212,7 +213,7 @@ def _prepare_ranking(df: pd.DataFrame) -> pd.DataFrame:
 def _normalize_inputs(
     pipeline_output: Mapping[str, Any] | None = None,
     ranking_df: pd.DataFrame | list[dict[str, Any]] | None = None,
-    metrics: Mapping[str, Any] | None = None,
+    metrics: Mapping[str, Any] | pd.DataFrame | None = None,
     analysis_df: pd.DataFrame | list[dict[str, Any]] | None = None,
     **kwargs: Any,
 ) -> tuple[pd.DataFrame, dict[str, Any], pd.DataFrame]:
@@ -228,12 +229,16 @@ def _normalize_inputs(
     final_ranking_df = _prepare_ranking(
         _as_dataframe(ranking_df) if ranking_df is not None else ranking_from_payload
     )
-    final_metrics = dict(metrics) if isinstance(metrics, Mapping) else metrics_from_payload
+
+    if isinstance(metrics, pd.DataFrame):
+        final_metrics = {}
+    else:
+        final_metrics = dict(metrics) if isinstance(metrics, Mapping) else metrics_from_payload
+
     final_analysis_df = (
         _as_dataframe(analysis_df) if analysis_df is not None else analysis_from_payload
     )
 
-    # Compatibilidad extra por si section_router manda otros aliases
     if final_ranking_df.empty:
         for key in ("results_df", "resultados_df", "topk_df", "ranking"):
             if key in kwargs:
@@ -319,7 +324,7 @@ def _build_metric_sentence(metrics: Mapping[str, Any]) -> str:
     if top_k is not None:
         fragments.append(f"HitRate@K/Top-K accuracy: {_format_percent(top_k, 1)}")
 
-    for key in ("precision", "recall", "f1", "roc_auc", "auc"):
+    for key in ("precision", "recall", "f1", "roc_auc", "auc", "mae", "rmse", "r2"):
         if key in metrics:
             label = {
                 "precision": "Precisión",
@@ -327,6 +332,9 @@ def _build_metric_sentence(metrics: Mapping[str, Any]) -> str:
                 "f1": "F1",
                 "roc_auc": "ROC-AUC",
                 "auc": "AUC",
+                "mae": "MAE",
+                "rmse": "RMSE",
+                "r2": "R²",
             }[key]
             fragments.append(f"{label}: {_format_number(_safe_float(metrics[key]), 3)}")
 
@@ -385,6 +393,79 @@ def _build_caution_sentence(ranking_df: pd.DataFrame, metrics: Mapping[str, Any]
     )
 
 
+def _split_sentences(text: str) -> list[str]:
+    if not text:
+        return []
+    return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
+
+
+def format_topk_list(text: str) -> list[str]:
+    """
+    Convierte la frase de Top-K en lista de ítems.
+    """
+    if not text:
+        return []
+
+    if ":" not in text:
+        return [text]
+
+    _, right = text.split(":", 1)
+    items = [item.strip().rstrip(".") for item in right.split(";") if item.strip()]
+    return items
+
+
+def format_executive_narrative(text: str) -> dict[str, Any]:
+    """
+    Convierte una narrativa lineal en bloques estructurados tipo informe ejecutivo.
+    """
+    blocks: dict[str, Any] = {
+        "contexto": "",
+        "resumen": "",
+        "topk_text": "",
+        "topk_items": [],
+        "metricas": "",
+        "interpretacion": "",
+        "cierre": "",
+    }
+
+    for sentence in _split_sentences(text):
+        lower = sentence.lower()
+
+        if "sistema de soporte a la decisión" in lower:
+            blocks["contexto"] += sentence + " "
+        elif "ranking final contiene" in lower or "resultado narrativo se apoya" in lower:
+            blocks["resumen"] += sentence + " "
+        elif "provincias con mayor prioridad" in lower:
+            blocks["topk_text"] += sentence + " "
+        elif (
+            "desempeño del sistema" in lower
+            or "hitrate@k" in lower
+            or "top-k accuracy" in lower
+            or "mae:" in lower
+            or "rmse:" in lower
+            or "r²:" in lower
+        ):
+            blocks["metricas"] += sentence + " "
+        elif (
+            "apoyo a la decisión" in lower
+            or "criterio experto" in lower
+            or "debe interpretarse" in lower
+            or "recalibrarse" in lower
+        ):
+            blocks["cierre"] += sentence + " "
+        else:
+            blocks["interpretacion"] += sentence + " "
+
+    blocks = {
+        key: value.strip() if isinstance(value, str) else value
+        for key, value in blocks.items()
+    }
+
+    blocks["topk_items"] = format_topk_list(blocks["topk_text"])
+
+    return blocks
+
+
 def build_executive_summary(
     pipeline_output: Mapping[str, Any] | None = None,
     *,
@@ -397,10 +478,6 @@ def build_executive_summary(
     """
     Construye un resumen ejecutivo amplio y tolerante a variaciones en la salida
     del pipeline.
-
-    Soporta dos modalidades:
-    - build_executive_summary(pipeline_output={...})
-    - build_executive_summary(ranking_df=df, metrics=..., analysis_df=df2)
     """
     final_ranking_df, final_metrics, final_analysis_df = _normalize_inputs(
         pipeline_output=pipeline_output,
@@ -441,10 +518,6 @@ def build_brief_executive_summary(
     """
     Construye una versión breve del resumen ejecutivo para tarjetas, paneles
     laterales o encabezados de resultados.
-
-    Soporta dos modalidades:
-    - build_brief_executive_summary(pipeline_output={...})
-    - build_brief_executive_summary(ranking_df=df, metrics=..., analysis_df=df2)
     """
     final_ranking_df, final_metrics, _ = _normalize_inputs(
         pipeline_output=pipeline_output,
@@ -534,8 +607,44 @@ def build_topk_narrative(
     )
 
 
+def build_narrative(
+    ranking_df: pd.DataFrame,
+    metricas_df: pd.DataFrame | Mapping[str, Any] | None,
+    latest_year: int,
+    model_label: str | None = None,
+) -> str:
+    """
+    Wrapper de compatibilidad para el pipeline.
+    Usa el resumen ejecutivo existente y añade el modelo utilizado.
+    """
+    metrics_payload: Mapping[str, Any] | None = None
+    if isinstance(metricas_df, Mapping):
+        metrics_payload = metricas_df
+
+    try:
+        base_text = build_executive_summary(
+            ranking_df=ranking_df,
+            metrics=metrics_payload,
+            analysis_df=None,
+            top_n=5,
+        )
+    except Exception:
+        base_text = (
+            f"El análisis del año {latest_year} identifica provincias con mayor "
+            f"criticidad relativa para priorización territorial."
+        )
+
+    if model_label:
+        return f"{base_text}\n\nMotor predictivo utilizado: {model_label}."
+
+    return base_text
+
+
 __all__ = [
     "build_brief_executive_summary",
     "build_executive_summary",
+    "build_narrative",
     "build_topk_narrative",
+    "format_executive_narrative",
+    "format_topk_list",
 ]

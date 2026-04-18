@@ -1,471 +1,175 @@
 from __future__ import annotations
 
-from typing import Any
+from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, r2_score
 
-from src.rules import apply_rules
+from .explain import explain_global
+from .features import create_features
+from .metrics import ranking_metrics
+from .model_catalog import DEFAULT_MODEL_KEY, get_model_label
+from .modeling import (
+    FEATURES,
+    evaluate_model,
+    model_metadata,
+    prepare_training_data,
+    score_dataframe,
+    temporal_train_test_split,
+    train_model,
+)
+from .narrative import build_narrative
+from .rules import apply_rules
 
 
-def run_pipeline(df: pd.DataFrame) -> dict[str, Any]:
-    required_cols = {
-        "provincia",
-        "provincia_canonica",
-        "year",
-        "fallecidos",
-    }
-    missing = required_cols - set(df.columns)
-    if missing:
-        raise KeyError(
-            f"Faltan columnas requeridas para el pipeline: {sorted(missing)}"
+def load_province_catalog() -> pd.DataFrame:
+    """
+    Carga el catálogo oficial de provincias de RD.
+    """
+    root = Path(__file__).resolve().parents[1]
+    catalog_path = root / "data" / "provincias_rd_catalog.csv"
+
+    if not catalog_path.exists():
+        raise FileNotFoundError(
+            f"No se encontró el catálogo de provincias en: {catalog_path}"
         )
 
-    working = df.copy()
+    catalog = pd.read_csv(catalog_path)
 
-    working["provincia"] = working["provincia"].astype(str).str.strip()
-    working["provincia_canonica"] = working["provincia_canonica"].astype(str).str.strip()
-    working["year"] = pd.to_numeric(working["year"], errors="coerce")
-    working["fallecidos"] = pd.to_numeric(working["fallecidos"], errors="coerce")
+    if "provincia" not in catalog.columns:
+        raise ValueError(
+            "El catálogo de provincias debe tener la columna 'provincia'."
+        )
 
-    working = working.dropna(
-        subset=["provincia", "provincia_canonica", "year", "fallecidos"]
-    ).copy()
+    return catalog[["provincia"]].drop_duplicates().copy()
 
-    working["year"] = working["year"].astype(int)
-    working["fallecidos"] = working["fallecidos"].astype(float)
 
-    # Agrupación base estable por provincia canónica y año.
-    # Se conserva provincia visible para la UI.
-    grouped = (
-        working.groupby(["provincia_canonica", "year"], as_index=False)
+def run_pipeline(
+    normalized_df: pd.DataFrame,
+    random_state: int = 42,
+    model_key: str = DEFAULT_MODEL_KEY,
+) -> dict:
+    # ------------------------------------------------------------
+    # 1. Feature engineering
+    # ------------------------------------------------------------
+    feat_df = create_features(normalized_df)
+
+    # ------------------------------------------------------------
+    # 2. Preparación del dataset de entrenamiento
+    # ------------------------------------------------------------
+    trainable_df = prepare_training_data(feat_df)
+
+    # ------------------------------------------------------------
+    # 3. Split temporal
+    # ------------------------------------------------------------
+    train_df, test_df, train_years, test_years = temporal_train_test_split(trainable_df)
+
+    # ------------------------------------------------------------
+    # 4. Entrenamiento
+    # ------------------------------------------------------------
+    fit_df = train_df if not train_df.empty else trainable_df
+    model = train_model(
+        fit_df,
+        model_key=model_key,
+        random_state=random_state,
+    )
+
+    # ------------------------------------------------------------
+    # 5. Evaluación
+    # ------------------------------------------------------------
+    eval_metrics = evaluate_model(model, test_df)
+
+    # ------------------------------------------------------------
+    # 6. Scoring
+    # ------------------------------------------------------------
+    scored_df = score_dataframe(model, feat_df)
+
+    # ------------------------------------------------------------
+    # 7. Reglas DSS
+    # ------------------------------------------------------------
+    scored_df = apply_rules(scored_df)
+
+    # ------------------------------------------------------------
+    # 8. Ranking del último período disponible
+    # ------------------------------------------------------------
+    latest_year = int(scored_df["year"].max())
+
+    latest_df = scored_df[scored_df["year"] == latest_year].copy()
+
+    ranking_df = (
+        latest_df.groupby("provincia", as_index=False)
         .agg(
-            fallecidos=("fallecidos", "sum"),
-            provincia=("provincia", _pick_display_name),
+            pred_fallecidos_next=("pred_fallecidos_next", "mean"),
+            score_riesgo=("score_riesgo", "mean"),
+            categoria=("categoria", "first"),
+            fallecidos_actuales=("fallecidos", "sum"),
         )
-        .sort_values(["provincia_canonica", "year"])
+        .sort_values("score_riesgo", ascending=False)
         .reset_index(drop=True)
     )
 
-    # Features temporales por provincia canónica
-    featured = _build_temporal_features(grouped)
+    # ------------------------------------------------------------
+    # 9. Expandir a todas las provincias oficiales
+    # ------------------------------------------------------------
+    catalog_df = load_province_catalog()
+    ranking_df = catalog_df.merge(ranking_df, on="provincia", how="left")
 
-    # Predicción por fallback si no hay suficientes datos para modelar
-    if featured.empty or featured["year"].nunique() < 2:
-        scored_df = _build_fallback_scored_df(grouped)
-        mae = None
-        r2 = None
-        explain_df = _build_fallback_explain_df()
-    else:
-        scored_df, mae, r2, explain_df = _fit_and_score(featured)
+    ranking_df["pred_fallecidos_next"] = ranking_df["pred_fallecidos_next"].fillna(0.0)
+    ranking_df["score_riesgo"] = ranking_df["score_riesgo"].fillna(0.0)
+    ranking_df["fallecidos_actuales"] = ranking_df["fallecidos_actuales"].fillna(0.0)
+    ranking_df["categoria"] = ranking_df["categoria"].fillna("Sin datos")
 
-    latest_year = int(scored_df["year"].max())
+    ranking_df = ranking_df.sort_values(
+        ["score_riesgo", "fallecidos_actuales"],
+        ascending=[False, False],
+    ).reset_index(drop=True)
 
-    ranking_df = _build_ranking_df(scored_df, latest_year)
-    metricas_df = _build_metrics_df(scored_df, ranking_df, latest_year)
-    narrative_text = _build_narrative_text(
-        scored_df=scored_df,
-        metricas_df=metricas_df,
-        latest_year=latest_year,
-        mae=mae,
-        r2=r2,
+    # ------------------------------------------------------------
+    # 10. Métricas Top-K
+    # ------------------------------------------------------------
+    metricas_df, pred_rank_df, actual_rank_df = ranking_metrics(scored_df)
+
+    # ------------------------------------------------------------
+    # 11. Explicabilidad global
+    # ------------------------------------------------------------
+    explain_df = explain_global(
+        model=model,
+        X=fit_df[FEATURES],
+        y=fit_df["target_next"],
     )
 
+    # ------------------------------------------------------------
+    # 12. Narrativa automática
+    # ------------------------------------------------------------
+    model_label = get_model_label(model_key)
+    narrative_text = build_narrative(
+        ranking_df=ranking_df,
+        metricas_df=metricas_df,
+        latest_year=latest_year,
+        model_label=model_label,
+    )
+
+    # ------------------------------------------------------------
+    # 13. Salida final
+    # ------------------------------------------------------------
+    metadata = model_metadata(model_key)
+
     return {
+        "feat_df": feat_df,
+        "trainable_df": trainable_df,
         "scored_df": scored_df,
         "ranking_df": ranking_df,
         "metricas_df": metricas_df,
+        "pred_rank_df": pred_rank_df,
+        "actual_rank_df": actual_rank_df,
         "explain_df": explain_df,
         "narrative_text": narrative_text,
-        "mae": mae,
-        "r2": r2,
         "latest_year": latest_year,
+        "train_years": train_years,
+        "test_years": test_years,
+        "mae": eval_metrics["mae"],
+        "rmse": eval_metrics["rmse"],
+        "r2": eval_metrics["r2"],
+        "model_key": metadata["model_key"],
+        "model_label": metadata["model_label"],
+        "model": model,
     }
-
-
-def _pick_display_name(series: pd.Series) -> str:
-    values = (
-        series.dropna()
-        .astype(str)
-        .str.strip()
-        .loc[lambda s: s.ne("")]
-        .value_counts()
-    )
-    if values.empty:
-        return ""
-    return str(values.index[0])
-
-
-def _build_temporal_features(grouped: pd.DataFrame) -> pd.DataFrame:
-    df = grouped.copy()
-    df = df.sort_values(["provincia_canonica", "year"]).reset_index(drop=True)
-
-    g = df.groupby("provincia_canonica", group_keys=False)
-
-    df["lag_1"] = g["fallecidos"].shift(1)
-    df["lag_2"] = g["fallecidos"].shift(2)
-    df["lag_3"] = g["fallecidos"].shift(3)
-
-    df["rolling_mean_2"] = (
-        g["fallecidos"].shift(1).rolling(window=2, min_periods=1).mean().reset_index(drop=True)
-    )
-    df["rolling_mean_3"] = (
-        g["fallecidos"].shift(1).rolling(window=3, min_periods=1).mean().reset_index(drop=True)
-    )
-
-    df["delta_1"] = df["lag_1"] - df["lag_2"]
-    df["delta_2"] = df["lag_2"] - df["lag_3"]
-
-    # Sólo filas entrenables: al menos lag_1
-    df_model = df.dropna(subset=["lag_1"]).copy()
-
-    return df_model
-
-
-def _fit_and_score(
-    featured: pd.DataFrame,
-) -> tuple[pd.DataFrame, float | None, float | None, pd.DataFrame]:
-    feature_cols = [
-        "year",
-        "lag_1",
-        "lag_2",
-        "lag_3",
-        "rolling_mean_2",
-        "rolling_mean_3",
-        "delta_1",
-        "delta_2",
-    ]
-
-    usable_feature_cols = [
-        col
-        for col in feature_cols
-        if col in featured.columns and featured[col].notna().any()
-    ]
-
-    train_df = featured.copy()
-    for col in usable_feature_cols:
-        train_df[col] = train_df[col].fillna(train_df[col].median())
-
-    X = train_df[usable_feature_cols]
-    y = train_df["fallecidos"]
-
-    model = RandomForestRegressor(
-        n_estimators=300,
-        max_depth=8,
-        min_samples_leaf=1,
-        random_state=42,
-    )
-    model.fit(X, y)
-
-    y_pred = model.predict(X)
-    mae = float(mean_absolute_error(y, y_pred))
-    r2 = float(r2_score(y, y_pred))
-
-    scored_df = featured.copy()
-    for col in usable_feature_cols:
-        scored_df[col] = scored_df[col].fillna(scored_df[col].median())
-
-    scored_df["pred_fallecidos_next"] = model.predict(scored_df[usable_feature_cols])
-    scored_df = _decorate_scored_df(scored_df)
-
-    # DSS real: las categorías se asignan con reglas explícitas
-    scored_df = apply_rules(scored_df)
-
-    explain_df = pd.DataFrame(
-        {
-            "feature": usable_feature_cols,
-            "importance": model.feature_importances_,
-        }
-    ).sort_values("importance", ascending=False).reset_index(drop=True)
-
-    return scored_df, mae, r2, explain_df
-
-
-def _build_fallback_scored_df(grouped: pd.DataFrame) -> pd.DataFrame:
-    df = grouped.copy()
-    df = df.sort_values(["provincia_canonica", "year"]).reset_index(drop=True)
-
-    g = df.groupby("provincia_canonica", group_keys=False)
-
-    df["lag_1"] = g["fallecidos"].shift(1)
-    df["lag_2"] = g["fallecidos"].shift(2)
-
-    df["pred_fallecidos_next"] = np.where(
-        df["lag_1"].notna(),
-        df["lag_1"],
-        df["fallecidos"],
-    )
-
-    scored_df = _decorate_scored_df(df)
-
-    # DSS real: las categorías se asignan con reglas explícitas
-    scored_df = apply_rules(scored_df)
-
-    return scored_df
-
-
-def _decorate_scored_df(scored_df: pd.DataFrame) -> pd.DataFrame:
-    df = scored_df.copy()
-
-    df["pred_fallecidos_next"] = pd.to_numeric(
-        df["pred_fallecidos_next"],
-        errors="coerce",
-    ).fillna(df["fallecidos"])
-
-    # Score relativo por año para mantener comparabilidad visual
-    df["score_riesgo"] = (
-        df.groupby("year")["pred_fallecidos_next"]
-        .transform(_minmax_scale)
-        .fillna(0.0)
-    )
-
-    # Compatibilidad con la app y con el motor de reglas
-    df["fallecidos_actuales"] = df["fallecidos"]
-    df["delta_abs"] = df["pred_fallecidos_next"] - df["fallecidos_actuales"]
-    df["delta_pct"] = np.where(
-        df["fallecidos_actuales"] == 0,
-        0.0,
-        (df["delta_abs"] / df["fallecidos_actuales"]) * 100.0,
-    )
-
-    df = df[
-        [
-            "provincia",
-            "provincia_canonica",
-            "year",
-            "fallecidos",
-            "fallecidos_actuales",
-            "pred_fallecidos_next",
-            "score_riesgo",
-            "delta_abs",
-            "delta_pct",
-        ]
-    ].copy()
-
-    df = df.sort_values(
-        ["year", "score_riesgo"],
-        ascending=[True, False],
-    ).reset_index(drop=True)
-    return df
-
-
-def _build_ranking_df(scored_df: pd.DataFrame, latest_year: int) -> pd.DataFrame:
-    latest = (
-        scored_df[scored_df["year"] == latest_year]
-        .sort_values("score_riesgo", ascending=False)
-        .reset_index(drop=True)
-    )
-
-    if latest.empty:
-        return pd.DataFrame(
-            columns=[
-                "provincia",
-                "pred_fallecidos_next",
-                "score_riesgo",
-                "categoria",
-                "fallecidos_actuales",
-                "delta_abs",
-                "delta_pct",
-                "ranking_posicion",
-            ]
-        )
-
-    ranking_df = latest.copy()
-    ranking_df["ranking_posicion"] = range(1, len(ranking_df) + 1)
-
-    ranking_df = ranking_df[
-        [
-            "provincia",
-            "pred_fallecidos_next",
-            "score_riesgo",
-            "categoria",
-            "fallecidos_actuales",
-            "delta_abs",
-            "delta_pct",
-            "ranking_posicion",
-        ]
-    ].copy()
-
-    return ranking_df
-
-
-def _build_metrics_df(
-    scored_df: pd.DataFrame,
-    ranking_df: pd.DataFrame,
-    latest_year: int,
-) -> pd.DataFrame:
-    latest = scored_df[scored_df["year"] == latest_year].copy()
-
-    if latest.empty:
-        return pd.DataFrame(
-            {
-                "metrica": [
-                    "top_1_score",
-                    "top_3_score_promedio",
-                    "provincias_analizadas",
-                    "hitrate_at_1",
-                    "hitrate_at_3",
-                    "hitrate_at_5",
-                    "topk_accuracy_at_1",
-                    "topk_accuracy_at_3",
-                    "topk_accuracy_at_5",
-                    "precision_at_1",
-                    "precision_at_3",
-                    "precision_at_5",
-                ],
-                "valor": [0.0] * 12,
-            }
-        )
-
-    latest_pred = latest.sort_values("score_riesgo", ascending=False).reset_index(drop=True)
-    latest_actual = latest.sort_values("fallecidos_actuales", ascending=False).reset_index(drop=True)
-
-    top_1_score = float(latest_pred.iloc[0]["score_riesgo"])
-    top_3_score_promedio = float(
-        latest_pred.head(min(3, len(latest_pred)))["score_riesgo"].mean()
-    )
-    provincias_analizadas = float(latest_pred["provincia_canonica"].nunique())
-
-    hitrate_1 = _hit_rate_at_k(latest_pred, latest_actual, 1)
-    hitrate_3 = _hit_rate_at_k(latest_pred, latest_actual, 3)
-    hitrate_5 = _hit_rate_at_k(latest_pred, latest_actual, 5)
-
-    topk_accuracy_1 = hitrate_1
-    topk_accuracy_3 = hitrate_3
-    topk_accuracy_5 = hitrate_5
-
-    precision_1 = _precision_at_k(latest_pred, latest_actual, 1)
-    precision_3 = _precision_at_k(latest_pred, latest_actual, 3)
-    precision_5 = _precision_at_k(latest_pred, latest_actual, 5)
-
-    return pd.DataFrame(
-        {
-            "metrica": [
-                "top_1_score",
-                "top_3_score_promedio",
-                "provincias_analizadas",
-                "hitrate_at_1",
-                "hitrate_at_3",
-                "hitrate_at_5",
-                "topk_accuracy_at_1",
-                "topk_accuracy_at_3",
-                "topk_accuracy_at_5",
-                "precision_at_1",
-                "precision_at_3",
-                "precision_at_5",
-            ],
-            "valor": [
-                top_1_score,
-                top_3_score_promedio,
-                provincias_analizadas,
-                hitrate_1,
-                hitrate_3,
-                hitrate_5,
-                topk_accuracy_1,
-                topk_accuracy_3,
-                topk_accuracy_5,
-                precision_1,
-                precision_3,
-                precision_5,
-            ],
-        }
-    )
-
-
-def _build_fallback_explain_df() -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "feature": ["lag_1", "year"],
-            "importance": [0.7, 0.3],
-        }
-    )
-
-
-def _build_narrative_text(
-    scored_df: pd.DataFrame,
-    metricas_df: pd.DataFrame,
-    latest_year: int,
-    mae: float | None,
-    r2: float | None,
-) -> str:
-    latest = (
-        scored_df[scored_df["year"] == latest_year]
-        .sort_values("score_riesgo", ascending=False)
-        .reset_index(drop=True)
-    )
-
-    if latest.empty:
-        return "No fue posible generar narrativa automática para el período analizado."
-
-    top = latest.iloc[0]
-    top3 = latest.head(min(3, len(latest)))["provincia"].tolist()
-
-    mae_text = "N/D" if mae is None else f"{mae:.3f}"
-    r2_text = "N/D" if r2 is None else f"{r2:.3f}"
-
-    def _metric_value(name: str) -> str:
-        row = metricas_df.loc[metricas_df["metrica"] == name, "valor"]
-        if row.empty:
-            return "N/D"
-        return f"{float(row.iloc[0]):.3f}"
-
-    hit3_text = _metric_value("hitrate_at_3")
-    hit5_text = _metric_value("hitrate_at_5")
-
-    return (
-        f"Para el año {latest_year}, la provincia con mayor prioridad estimada es "
-        f"{top['provincia']}, con un score de riesgo de {top['score_riesgo']:.3f} y "
-        f"una predicción de {top['pred_fallecidos_next']:.2f} fallecidos. "
-        f"Las tres provincias mejor posicionadas en la priorización actual son: "
-        f"{', '.join(top3)}. "
-        f"El desempeño global del modelo reporta un MAE de {mae_text} y un R² de {r2_text}. "
-        f"En términos de priorización Top-K, el HitRate@3 es {hit3_text} y el HitRate@5 es {hit5_text}. "
-        f"La categorización final del DSS no se asigna directamente desde el modelo, "
-        f"sino mediante reglas explícitas aplicadas sobre el score de riesgo y la variación reciente. "
-        f"Esta salida se construye agrupando por provincia canónica para evitar duplicidades "
-        f"nominales, pero conservando el nombre visible de provincia para la capa de visualización."
-    )
-
-
-def _hit_rate_at_k(
-    pred_df: pd.DataFrame,
-    actual_df: pd.DataFrame,
-    k: int,
-) -> float:
-    pred_top = set(pred_df.head(min(k, len(pred_df)))["provincia_canonica"].astype(str))
-    actual_top = set(actual_df.head(min(k, len(actual_df)))["provincia_canonica"].astype(str))
-
-    if not actual_top:
-        return 0.0
-
-    return float(len(pred_top & actual_top) / len(actual_top))
-
-
-def _precision_at_k(
-    pred_df: pd.DataFrame,
-    actual_df: pd.DataFrame,
-    k: int,
-) -> float:
-    pred_top = set(pred_df.head(min(k, len(pred_df)))["provincia_canonica"].astype(str))
-    actual_top = set(actual_df.head(min(k, len(actual_df)))["provincia_canonica"].astype(str))
-
-    if not pred_top:
-        return 0.0
-
-    return float(len(pred_top & actual_top) / len(pred_top))
-
-
-def _minmax_scale(series: pd.Series) -> pd.Series:
-    s = pd.to_numeric(series, errors="coerce")
-    s_min = s.min()
-    s_max = s.max()
-
-    if pd.isna(s_min) or pd.isna(s_max):
-        return pd.Series(np.zeros(len(series)), index=series.index)
-
-    if float(s_max) == float(s_min):
-        return pd.Series(np.ones(len(series)) * 0.5, index=series.index)
-
-    return (s - s_min) / (s_max - s_min)
