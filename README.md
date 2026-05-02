@@ -1,4 +1,4 @@
-# DSS_Hotspots_RD
+# RD_DSS_Hotspots
 
 ![CI](https://github.com/edjnolasco/dss_hotspots_rd/actions/workflows/ci.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-80%25-brightgreen)
@@ -6,7 +6,7 @@
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Framework](https://img.shields.io/badge/streamlit-1.56.0-red)
 ![ML](https://img.shields.io/badge/modeling-multi--model-green)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 ![Status](https://img.shields.io/badge/status-stable-success)
 
 Sistema de Soporte a la Decisión (DSS) para la identificación, priorización y visualización de zonas críticas de siniestralidad vial en la República Dominicana.
@@ -41,7 +41,7 @@ El sistema tiene como propósito apoyar la toma de decisiones en seguridad vial 
 
 ## 🚀 Valor diferencial
 
-DSS_Hotspots_RD no se limita a mostrar indicadores o aplicar un único modelo de machine learning. El sistema integra:
+RD_DSS_Hotspots no se limita a mostrar indicadores o aplicar un único modelo de machine learning. El sistema integra:
 
 - un enfoque **híbrido DSS**: datos + modelo + reglas + ranking
 - comparación entre **múltiples algoritmos**
@@ -156,7 +156,7 @@ Se incorporó un toggle **Presentación ON/OFF** para alternar entre:
 ## 🧩 Arquitectura del proyecto
 
 ```text
-DSS_Hotspots_RD/
+RD_DSS_Hotspots/
 │
 ├── VERSION
 ├── README.md
@@ -326,7 +326,7 @@ Este proyecto puede utilizarse como base para:
 ## 📚 Cómo citar (APA 7)
 
 ```text
-Nolasco, E. J. (2026). DSS_Hotspots_RD: Sistema de soporte a la decisión para la priorización de siniestralidad vial basado en modelos multi-algoritmo y reglas (v1.2.0) [Software]. GitHub. https://github.com/edjnolasco/dss_hotspots_rd
+Nolasco, E. J. (2026). DSS_Hotspots_RD: Sistema de soporte a la decisión para la priorización de siniestralidad vial basado en modelos multi-algoritmo y reglas (v1.2.0) [Software]. GitHub. https://github.com/edjnolasco/rd_dss_hotspots
 ```
 
 ---
@@ -339,12 +339,12 @@ Nolasco, E. J. (2026). DSS_Hotspots_RD: Sistema de soporte a la decisión para l
 
 ## 📌 Licencia
 
-**MIT License**
+**Apache 2.0 License**
 
 ---
 
 ## 🧠 Conclusión
 
-DSS_Hotspots_RD demuestra que la integración de modelos predictivos, reglas de decisión y mecanismos de priorización puede dar lugar a un sistema más robusto, interpretable y útil para contextos reales de análisis territorial.
+RD_DSS_Hotspots demuestra que la integración de modelos predictivos, reglas de decisión y mecanismos de priorización puede dar lugar a un sistema más robusto, interpretable y útil para contextos reales de análisis territorial.
 
 El sistema no busca únicamente predecir, sino estructurar decisiones apoyadas en evidencia.
